@@ -18,7 +18,6 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
   const [canRepeat, setCanRepeat] = useState(false);
   const [timeblock, setTimeblock] = useState('');
   const [commentsEnabled, setCommentsEnabled] = useState(false);
-  const [extraPenalty, setExtraPenalty] = useState('0');
   const [error, setError] = useState('');
 
   const createPrioritry = useCreatePrioritry();
@@ -32,11 +31,8 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setCanRepeat(editing.can_repeat);
       setTimeblock(editing.timeblock?.toString() || '');
       setCommentsEnabled(editing.comments_enabled);
-      setExtraPenalty(editing.extra_penalty.toString());
     }
   }, [editing]);
-
-  const isBonus = typeId === BONUS_TYPE_ID;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -55,7 +51,6 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       can_repeat: canRepeat,
       timeblock: timeblock ? parseInt(timeblock) : null,
       comments_enabled: commentsEnabled,
-      extra_penalty: isBonus ? 0 : (extraPenalty === '' ? 0 : parseInt(extraPenalty) || 0),
     };
 
     try {
@@ -71,7 +66,6 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setCanRepeat(false);
       setTimeblock('');
       setCommentsEnabled(false);
-      setExtraPenalty('0');
       onDone();
     } catch (err: any) {
       setError(err.message);
@@ -98,7 +92,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
         <div>
           <label className="text-xs text-gray-500 flex items-center">
             Type
-            <Tooltip text="Goals are things you want to strive to do every day. If you haven't hit a Goal, you'll be penalized 1/2 of its point value by default, plus any extra penalty you assign to it. A Bonus is a nice-to-have extra to tack on — think of a weekly chore like laundry or meal prep." />
+            <Tooltip text="Goals are things you want to do every day. Miss a Goal and its full point value counts against you. A Bonus is a nice-to-have extra — no penalty if you skip it." />
           </label>
           <select
             value={typeId}
@@ -121,35 +115,19 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="text-xs text-gray-500 flex items-center">
-            Timeblock (minutes)
-            <Tooltip text="Add a time block for a Goal that you want to have a target duration — e.g. Exercise 25 minutes. You'll be able to track the time you spent on these blocks for more insight the more you Priori-try!" />
-          </label>
-          <input
-            type="number"
-            min={1}
-            placeholder="Optional"
-            value={timeblock}
-            onChange={e => setTimeblock(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-          />
-        </div>
-        <div>
-          <label className="text-xs text-gray-500 flex items-center">
-            Extra Penalty
-            <Tooltip text="If the 1/2 Point Value default isn't enough motivation, you can ramp up how much missing a Goal will deduct from your score — think of things that you REALLY shouldn't miss in a day!" />
-          </label>
-          <input
-            type="number"
-            value={isBonus ? '0' : extraPenalty}
-            onChange={e => setExtraPenalty(e.target.value)}
-            disabled={isBonus}
-            placeholder="Optional"
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg disabled:bg-gray-100 disabled:text-gray-400"
-          />
-        </div>
+      <div>
+        <label className="text-xs text-gray-500 flex items-center">
+          Timeblock (minutes)
+          <Tooltip text="Add a time block for a Goal that you want to have a target duration — e.g. Exercise 25 minutes. You'll be able to track the time you spent on these blocks for more insight the more you Priori-try!" />
+        </label>
+        <input
+          type="number"
+          min={1}
+          placeholder="Optional"
+          value={timeblock}
+          onChange={e => setTimeblock(e.target.value)}
+          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+        />
       </div>
 
       <div className="flex gap-4">

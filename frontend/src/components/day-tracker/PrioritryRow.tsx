@@ -58,9 +58,6 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
           +
         </button>
         <span className="w-12 text-right text-sm font-mono">{item.point_value}</span>
-        <span className="w-12 text-right text-sm font-mono text-gray-500">
-          {isBonus ? '-' : item.extra_penalty}
-        </span>
         <span className="w-10 text-center text-sm font-mono">{item.entry_count}</span>
         <span className={`w-14 text-right text-sm font-mono font-bold ${totalColor}`}>
           {totalValue > 0 ? '+' : ''}{totalValue % 1 === 0 ? totalValue : totalValue.toFixed(1)}

@@ -10,20 +10,12 @@ class PrioritryCreate(BaseModel):
     can_repeat: bool = True
     timeblock: int | None = None
     comments_enabled: bool = False
-    extra_penalty: int = 0
 
     @field_validator("point_value")
     @classmethod
     def point_value_non_negative(cls, v):
         if v < 0:
             raise ValueError("point_value must be 0 or greater")
-        return v
-
-    @field_validator("extra_penalty")
-    @classmethod
-    def extra_penalty_non_negative(cls, v):
-        if v < 0:
-            raise ValueError("extra_penalty must be 0 or greater")
         return v
 
 
@@ -34,7 +26,6 @@ class PrioritryUpdate(BaseModel):
     can_repeat: bool | None = None
     timeblock: int | None = None
     comments_enabled: bool | None = None
-    extra_penalty: int | None = None
 
     @field_validator("point_value")
     @classmethod
@@ -54,7 +45,6 @@ class PrioritryOut(BaseModel):
     can_repeat: bool
     timeblock: int | None
     comments_enabled: bool
-    extra_penalty: int
     is_active: bool
     created_at: datetime
     updated_at: datetime

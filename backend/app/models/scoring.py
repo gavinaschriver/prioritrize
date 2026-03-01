@@ -14,7 +14,6 @@ class DayPrioritrySummary(BaseModel):
     prioritry_id: UUID
     name: str
     point_value: int
-    extra_penalty: int
     can_repeat: bool
     comments_enabled: bool
     timeblock: int | None

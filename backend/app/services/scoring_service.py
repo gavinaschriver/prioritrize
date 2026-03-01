@@ -21,7 +21,6 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             p.id AS prioritry_id,
             p.name,
             p.point_value,
-            p.extra_penalty,
             p.can_repeat,
             p.comments_enabled,
             p.timeblock,
@@ -67,7 +66,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             if entry_count > 0:
                 total_value = Decimal(row["point_value"]) * entry_count
             else:
-                total_value = -(Decimal(row["point_value"]) / 2 + Decimal(row["extra_penalty"]))
+                total_value = -Decimal(row["point_value"])
         else:  # Bonus
             total_value = Decimal(row["point_value"]) * entry_count if entry_count > 0 else Decimal(0)
 
@@ -75,7 +74,6 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             prioritry_id=row["prioritry_id"],
             name=row["name"],
             point_value=row["point_value"],
-            extra_penalty=row["extra_penalty"],
             can_repeat=row["can_repeat"],
             comments_enabled=row["comments_enabled"],
             timeblock=row["timeblock"],

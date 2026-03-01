@@ -1,5 +1,4 @@
 import { PrioritryRow } from './PrioritryRow';
-import { Tooltip } from '../shared/Tooltip';
 import type { DayPrioritrySummary } from '../../types';
 
 interface GoalsSectionProps {
@@ -20,7 +19,6 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
         <div className="flex-1">Name</div>
         <div className="w-8"></div>
         <div className="w-12 text-right">Pts</div>
-        <div className="w-12 text-right flex items-center justify-end">Pen.<Tooltip text="1/2 of a Goal's Point Value plus any Extra Penalty you've assigned it." /></div>
         <div className="w-10 text-center">#</div>
         <div className="w-14 text-right">Total</div>
       </div>
