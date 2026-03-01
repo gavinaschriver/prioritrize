@@ -17,7 +17,14 @@ async function authFetch(path: string, options: RequestInit = {}) {
 
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
-    throw new Error(err.detail || 'API error');
+    // FastAPI validation errors return detail as an array of objects
+    let message = 'API error';
+    if (typeof err.detail === 'string') {
+      message = err.detail;
+    } else if (Array.isArray(err.detail)) {
+      message = err.detail.map((e: any) => e.msg || JSON.stringify(e)).join('; ');
+    }
+    throw new Error(message);
   }
   return res.json();
 }
@@ -28,6 +35,8 @@ export const api = {
     authFetch(path, { method: 'POST', body: JSON.stringify(body) }),
   put: (path: string, body: unknown) =>
     authFetch(path, { method: 'PUT', body: JSON.stringify(body) }),
+  patch: (path: string, body: unknown) =>
+    authFetch(path, { method: 'PATCH', body: JSON.stringify(body) }),
   delete: (path: string) => authFetch(path, { method: 'DELETE' }),
 };
 

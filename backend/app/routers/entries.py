@@ -3,7 +3,7 @@ from uuid import UUID
 import asyncpg
 from app.auth import get_current_user
 from app.database import get_conn
-from app.models.entry import EntryCreate, EntryOut
+from app.models.entry import EntryCreate, EntryUpdate, EntryOut
 from app.services import entry_service
 
 router = APIRouter(prefix="/api/entries", tags=["entries"])
@@ -17,6 +17,16 @@ async def create_entry(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await entry_service.create_entry(user["id"], data, tz, conn)
+
+
+@router.patch("/{entry_id}", response_model=EntryOut)
+async def update_entry(
+    entry_id: UUID,
+    data: EntryUpdate,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await entry_service.update_entry(user["id"], entry_id, data.comment, conn)
 
 
 @router.delete("/{entry_id}")

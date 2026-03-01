@@ -3,7 +3,7 @@ from datetime import datetime
 from uuid import UUID
 
 
-class PrioritriCreate(BaseModel):
+class PrioritryCreate(BaseModel):
     name: str
     type_id: int
     point_value: int
@@ -14,20 +14,20 @@ class PrioritriCreate(BaseModel):
 
     @field_validator("point_value")
     @classmethod
-    def point_value_positive(cls, v):
-        if v <= 0:
-            raise ValueError("point_value must be positive")
+    def point_value_non_negative(cls, v):
+        if v < 0:
+            raise ValueError("point_value must be 0 or greater")
         return v
 
     @field_validator("extra_penalty")
     @classmethod
     def extra_penalty_non_negative(cls, v):
         if v < 0:
-            raise ValueError("extra_penalty must be non-negative")
+            raise ValueError("extra_penalty must be 0 or greater")
         return v
 
 
-class PrioritriUpdate(BaseModel):
+class PrioritryUpdate(BaseModel):
     name: str | None = None
     type_id: int | None = None
     point_value: int | None = None
@@ -38,13 +38,13 @@ class PrioritriUpdate(BaseModel):
 
     @field_validator("point_value")
     @classmethod
-    def point_value_positive(cls, v):
-        if v is not None and v <= 0:
-            raise ValueError("point_value must be positive")
+    def point_value_non_negative(cls, v):
+        if v is not None and v < 0:
+            raise ValueError("point_value must be 0 or greater")
         return v
 
 
-class PrioritriOut(BaseModel):
+class PrioritryOut(BaseModel):
     id: UUID
     user_id: UUID
     name: str

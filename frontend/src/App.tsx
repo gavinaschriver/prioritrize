@@ -2,7 +2,7 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from './pages/LoginPage';
 import { DayTrackerPage } from './pages/DayTrackerPage';
-import { ManagePrioritrisPage } from './pages/ManagePrioritrisPage';
+import { ManagePrioritriesPage } from './pages/ManagePrioritriesPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -36,7 +36,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <AppShell>
-                  <ManagePrioritrisPage />
+                  <ManagePrioritriesPage />
                 </AppShell>
               </ProtectedRoute>
             }

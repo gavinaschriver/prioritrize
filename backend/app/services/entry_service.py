@@ -16,24 +16,24 @@ async def create_entry(
     user_id: str, data: EntryCreate, tz_str: str, conn: asyncpg.Connection
 ) -> EntryOut:
     uid = to_uuid(user_id)
-    pri_id = to_uuid(str(data.prioritri_id))
+    pri_id = to_uuid(str(data.prioritry_id))
 
-    prioritri = await conn.fetchrow(
-        "SELECT * FROM prioritri WHERE id = $1 AND user_id = $2 AND is_active = true",
+    prioritry = await conn.fetchrow(
+        "SELECT * FROM prioritry WHERE id = $1 AND user_id = $2 AND is_active = true",
         pri_id, uid,
     )
-    if not prioritri:
-        raise HTTPException(404, "Prioritri not found")
+    if not prioritry:
+        raise HTTPException(404, "PrioriTry not found")
 
     today_str = get_today_str(tz_str)
     target_date = data.target_date or today_str
     start_utc, end_utc = get_day_boundaries_utc(target_date, tz_str)
 
-    if not prioritri["can_repeat"]:
+    if not prioritry["can_repeat"]:
         existing_count = await conn.fetchval(
             """
             SELECT COUNT(*) FROM entry
-            WHERE prioritri_id = $1 AND user_id = $2
+            WHERE prioritry_id = $1 AND user_id = $2
               AND created_at >= $3 AND created_at < $4
             """,
             pri_id, uid, start_utc, end_utc,
@@ -48,7 +48,7 @@ async def create_entry(
         )
         row = await conn.fetchrow(
             """
-            INSERT INTO entry (prioritri_id, user_id, comment, created_at)
+            INSERT INTO entry (prioritry_id, user_id, comment, created_at)
             VALUES ($1, $2, $3, $4)
             RETURNING *
             """,
@@ -58,14 +58,35 @@ async def create_entry(
     else:
         row = await conn.fetchrow(
             """
-            INSERT INTO entry (prioritri_id, user_id, comment)
+            INSERT INTO entry (prioritry_id, user_id, comment)
             VALUES ($1, $2, $3)
             RETURNING *
             """,
             pri_id, uid, data.comment,
         )
 
-    return EntryOut(**dict(row), prioritri_name=prioritri["name"])
+    return EntryOut(**dict(row), prioritry_name=prioritry["name"])
+
+
+async def update_entry(
+    user_id: str, entry_id: UUID, comment: str | None, conn: asyncpg.Connection
+) -> EntryOut:
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        """
+        UPDATE entry SET comment = $1
+        WHERE id = $2 AND user_id = $3
+        RETURNING *
+        """,
+        comment, entry_id, uid,
+    )
+    if not row:
+        raise HTTPException(404, "Entry not found")
+
+    prioritry = await conn.fetchrow(
+        "SELECT name FROM prioritry WHERE id = $1", row["prioritry_id"]
+    )
+    return EntryOut(**dict(row), prioritry_name=prioritry["name"] if prioritry else None)
 
 
 async def delete_entry(
@@ -98,9 +119,9 @@ async def list_entries_for_day(
     start_utc, end_utc = get_day_boundaries_utc(date_str, tz_str)
     rows = await conn.fetch(
         """
-        SELECT e.*, p.name AS prioritri_name
+        SELECT e.*, p.name AS prioritry_name
         FROM entry e
-        JOIN prioritri p ON p.id = e.prioritri_id
+        JOIN prioritry p ON p.id = e.prioritry_id
         WHERE e.user_id = $1
           AND e.created_at >= $2
           AND e.created_at < $3

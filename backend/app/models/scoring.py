@@ -10,8 +10,8 @@ class EntryBrief(BaseModel):
     created_at: datetime
 
 
-class DayPrioritriSummary(BaseModel):
-    prioritri_id: UUID
+class DayPrioritrySummary(BaseModel):
+    prioritry_id: UUID
     name: str
     point_value: int
     extra_penalty: int
@@ -26,8 +26,8 @@ class DayPrioritriSummary(BaseModel):
 class DaySummary(BaseModel):
     date: str
     timezone: str
-    goals: list[DayPrioritriSummary]
-    bonuses: list[DayPrioritriSummary]
+    goals: list[DayPrioritrySummary]
+    bonuses: list[DayPrioritrySummary]
     goals_subtotal: Decimal
     bonuses_subtotal: Decimal
     daily_score: Decimal

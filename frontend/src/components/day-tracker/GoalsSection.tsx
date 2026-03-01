@@ -1,8 +1,9 @@
-import { PrioritriRow } from './PrioritriRow';
-import type { DayPrioritriSummary } from '../../types';
+import { PrioritryRow } from './PrioritryRow';
+import { Tooltip } from '../shared/Tooltip';
+import type { DayPrioritrySummary } from '../../types';
 
 interface GoalsSectionProps {
-  goals: DayPrioritriSummary[];
+  goals: DayPrioritrySummary[];
   subtotal: number;
   selectedDate: string;
 }
@@ -14,13 +15,12 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">Goals</h3>
-        <p className="text-xs text-gray-400 italic">Unhit penalty = 1/2 point value + extra penalty</p>
       </div>
       <div className="flex items-center gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
         <div className="flex-1">Name</div>
         <div className="w-8"></div>
         <div className="w-12 text-right">Pts</div>
-        <div className="w-12 text-right">Pen.</div>
+        <div className="w-12 text-right flex items-center justify-end">Pen.<Tooltip text="1/2 of a Goal's Point Value plus any Extra Penalty you've assigned it." /></div>
         <div className="w-10 text-center">#</div>
         <div className="w-14 text-right">Total</div>
       </div>
@@ -28,7 +28,7 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
         <p className="text-sm text-gray-400 py-2">No goals yet. Add some in Manage.</p>
       )}
       {goals.map(g => (
-        <PrioritriRow key={g.prioritri_id} item={g} isBonus={false} selectedDate={selectedDate} />
+        <PrioritryRow key={g.prioritry_id} item={g} isBonus={false} selectedDate={selectedDate} />
       ))}
       <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
         <span className={`text-sm font-bold font-mono ${subtotalColor}`}>

@@ -6,11 +6,23 @@ export function useCreateEntry() {
   const tz = getUserTimezone();
 
   return useMutation({
-    mutationFn: (data: { prioritri_id: string; comment?: string | null; target_date?: string }) =>
+    mutationFn: (data: { prioritry_id: string; comment?: string | null; target_date?: string }) =>
       api.post(`/api/entries?tz=${encodeURIComponent(tz)}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
       queryClient.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
+export function useUpdateEntryComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: ({ entryId, comment }: { entryId: string; comment: string | null }) =>
+      api.patch(`/api/entries/${entryId}`, { comment }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
     },
   });
 }

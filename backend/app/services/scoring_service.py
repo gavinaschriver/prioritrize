@@ -3,7 +3,7 @@ from uuid import UUID
 from decimal import Decimal
 from datetime import date as date_type
 from app.utils.timezone import get_day_boundaries_utc, get_today_str
-from app.models.scoring import DaySummary, DayPrioritriSummary, EntryBrief, BalanceOut
+from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, BalanceOut
 
 
 def to_uuid(user_id: str) -> UUID:
@@ -18,7 +18,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     rows = await conn.fetch(
         """
         SELECT
-            p.id AS prioritri_id,
+            p.id AS prioritry_id,
             p.name,
             p.point_value,
             p.extra_penalty,
@@ -26,7 +26,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             p.comments_enabled,
             p.timeblock,
             t.name AS type_name
-        FROM prioritri p
+        FROM prioritry p
         JOIN type t ON t.id = p.type_id
         WHERE p.user_id = $1
           AND p.is_active = true
@@ -39,7 +39,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # Get all entries for this day
     entries = await conn.fetch(
         """
-        SELECT e.id, e.prioritri_id, e.comment, e.created_at
+        SELECT e.id, e.prioritry_id, e.comment, e.created_at
         FROM entry e
         WHERE e.user_id = $1
           AND e.created_at >= $2
@@ -49,18 +49,18 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         uid, start_utc, end_utc,
     )
 
-    # Group entries by prioritri_id
-    entries_by_prioritri: dict[str, list[dict]] = {}
+    # Group entries by prioritry_id
+    entries_by_prioritry: dict[str, list[dict]] = {}
     for e in entries:
-        pid = str(e["prioritri_id"])
-        entries_by_prioritri.setdefault(pid, []).append(dict(e))
+        pid = str(e["prioritry_id"])
+        entries_by_prioritry.setdefault(pid, []).append(dict(e))
 
     goals = []
     bonuses = []
 
     for row in rows:
-        pid = str(row["prioritri_id"])
-        pri_entries = entries_by_prioritri.get(pid, [])
+        pid = str(row["prioritry_id"])
+        pri_entries = entries_by_prioritry.get(pid, [])
         entry_count = len(pri_entries)
 
         if row["type_name"] == "Goal":
@@ -71,8 +71,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         else:  # Bonus
             total_value = Decimal(row["point_value"]) * entry_count if entry_count > 0 else Decimal(0)
 
-        summary = DayPrioritriSummary(
-            prioritri_id=row["prioritri_id"],
+        summary = DayPrioritrySummary(
+            prioritry_id=row["prioritry_id"],
             name=row["name"],
             point_value=row["point_value"],
             extra_penalty=row["extra_penalty"],
