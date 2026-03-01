@@ -15,7 +15,6 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
         <div className="flex-1">Name</div>
         <div className="w-8"></div>
         <div className="w-12 text-right">Pts</div>
-        <div className="w-12 text-right">Pen.</div>
         <div className="w-10 text-center">#</div>
         <div className="w-14 text-right">Total</div>
       </div>

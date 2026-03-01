@@ -31,19 +31,15 @@ async def create_prioritry(user_id: str, data: PrioritryCreate, conn: asyncpg.Co
     if not type_row:
         raise HTTPException(400, "Invalid type_id")
 
-    extra_penalty = data.extra_penalty
-    if type_row["name"] == "Bonus":
-        extra_penalty = 0
-
     row = await conn.fetchrow(
         """
         INSERT INTO prioritry (user_id, name, type_id, point_value, can_repeat, timeblock,
-                               comments_enabled, extra_penalty)
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                               comments_enabled)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING *
         """,
         uid, data.name, data.type_id, data.point_value, data.can_repeat,
-        data.timeblock, data.comments_enabled, extra_penalty,
+        data.timeblock, data.comments_enabled,
     )
     return PrioritryOut(**dict(row), type_name=type_row["name"])
 
@@ -66,8 +62,6 @@ async def update_prioritry(user_id: str, prioritry_id: UUID, data: PrioritryUpda
 
     final_type_id = updates.get("type_id", existing["type_id"])
     type_row = await conn.fetchrow("SELECT name FROM type WHERE id = $1", final_type_id)
-    if type_row["name"] == "Bonus":
-        updates["extra_penalty"] = 0
 
     set_clauses = []
     params = [prioritry_id, uid]

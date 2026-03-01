@@ -21,7 +21,6 @@ export function PrioritryList({ onEdit }: PrioritryListProps) {
         <span className="text-sm font-medium">{p.name}</span>
         <span className="ml-2 text-xs text-gray-400">
           {p.point_value} pts
-          {p.extra_penalty > 0 && ` / ${p.extra_penalty} pen.`}
           {p.timeblock && ` / ${p.timeblock} min`}
           {p.can_repeat && ' / repeatable'}
         </span>

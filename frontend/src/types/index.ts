@@ -8,7 +8,6 @@ export interface Prioritry {
   can_repeat: boolean;
   timeblock: number | null;
   comments_enabled: boolean;
-  extra_penalty: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -21,7 +20,6 @@ export interface PrioritryCreate {
   can_repeat: boolean;
   timeblock: number | null;
   comments_enabled: boolean;
-  extra_penalty: number;
 }
 
 export interface Entry {
@@ -43,7 +41,6 @@ export interface DayPrioritrySummary {
   prioritry_id: string;
   name: string;
   point_value: number;
-  extra_penalty: number;
   can_repeat: boolean;
   comments_enabled: boolean;
   timeblock: number | null;
