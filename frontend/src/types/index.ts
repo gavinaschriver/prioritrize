@@ -1,4 +1,4 @@
-export interface Prioritri {
+export interface Prioritry {
   id: string;
   user_id: string;
   name: string;
@@ -14,7 +14,7 @@ export interface Prioritri {
   updated_at: string;
 }
 
-export interface PrioritriCreate {
+export interface PrioritryCreate {
   name: string;
   type_id: number;
   point_value: number;
@@ -26,9 +26,9 @@ export interface PrioritriCreate {
 
 export interface Entry {
   id: string;
-  prioritri_id: string;
+  prioritry_id: string;
   user_id: string;
-  prioritri_name?: string;
+  prioritry_name?: string;
   comment: string | null;
   created_at: string;
 }
@@ -39,8 +39,8 @@ export interface EntryBrief {
   created_at: string;
 }
 
-export interface DayPrioritriSummary {
-  prioritri_id: string;
+export interface DayPrioritrySummary {
+  prioritry_id: string;
   name: string;
   point_value: number;
   extra_penalty: number;
@@ -55,8 +55,8 @@ export interface DayPrioritriSummary {
 export interface DaySummary {
   date: string;
   timezone: string;
-  goals: DayPrioritriSummary[];
-  bonuses: DayPrioritriSummary[];
+  goals: DayPrioritrySummary[];
+  bonuses: DayPrioritrySummary[];
   goals_subtotal: number;
   bonuses_subtotal: number;
   daily_score: number;

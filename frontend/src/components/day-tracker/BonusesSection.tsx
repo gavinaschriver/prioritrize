@@ -1,8 +1,8 @@
-import { PrioritriRow } from './PrioritriRow';
-import type { DayPrioritriSummary } from '../../types';
+import { PrioritryRow } from './PrioritryRow';
+import type { DayPrioritrySummary } from '../../types';
 
 interface BonusesSectionProps {
-  bonuses: DayPrioritriSummary[];
+  bonuses: DayPrioritrySummary[];
   subtotal: number;
   selectedDate: string;
 }
@@ -23,7 +23,7 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
         <p className="text-sm text-gray-400 py-2">No bonuses yet.</p>
       )}
       {bonuses.map(b => (
-        <PrioritriRow key={b.prioritri_id} item={b} isBonus={true} selectedDate={selectedDate} />
+        <PrioritryRow key={b.prioritry_id} item={b} isBonus={true} selectedDate={selectedDate} />
       ))}
       <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
         <span className="text-sm font-bold font-mono text-green-600">

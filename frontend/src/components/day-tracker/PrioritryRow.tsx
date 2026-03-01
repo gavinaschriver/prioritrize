@@ -1,14 +1,14 @@
 import { useState } from 'react';
 import { useCreateEntry } from '../../hooks/useEntries';
-import type { DayPrioritriSummary } from '../../types';
+import type { DayPrioritrySummary } from '../../types';
 
-interface PrioritriRowProps {
-  item: DayPrioritriSummary;
+interface PrioritryRowProps {
+  item: DayPrioritrySummary;
   isBonus: boolean;
   selectedDate: string;
 }
 
-export function PrioritriRow({ item, isBonus, selectedDate }: PrioritriRowProps) {
+export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps) {
   const [comment, setComment] = useState('');
   const createEntry = useCreateEntry();
 
@@ -18,7 +18,7 @@ export function PrioritriRow({ item, isBonus, selectedDate }: PrioritriRowProps)
 
   const handleAdd = () => {
     createEntry.mutate({
-      prioritri_id: item.prioritri_id,
+      prioritry_id: item.prioritry_id,
       comment: item.comments_enabled && comment.trim() ? comment.trim() : undefined,
       target_date: selectedDate,
     });
@@ -37,8 +37,15 @@ export function PrioritriRow({ item, isBonus, selectedDate }: PrioritriRowProps)
     return item.name;
   };
 
+  // Goals get red/green emphasis based on entry status
+  const rowBg = !isBonus
+    ? item.entry_count > 0
+      ? 'bg-green-50 border border-green-200 rounded-lg px-2 -mx-2'
+      : 'bg-red-50 border border-red-200 rounded-lg px-2 -mx-2'
+    : '';
+
   return (
-    <div className="border-b border-gray-100 py-2">
+    <div className={`border-b border-gray-100 py-2 ${rowBg}`}>
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm">{formatName()}</span>

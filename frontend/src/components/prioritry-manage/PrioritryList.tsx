@@ -1,21 +1,21 @@
-import { usePrioritris, useDeletePrioritri } from '../../hooks/usePrioritris';
-import type { Prioritri } from '../../types';
+import { usePrioritries, useDeletePrioritry } from '../../hooks/usePrioritries';
+import type { Prioritry } from '../../types';
 
-interface PrioritriListProps {
-  onEdit: (p: Prioritri) => void;
+interface PrioritryListProps {
+  onEdit: (p: Prioritry) => void;
 }
 
-export function PrioritriList({ onEdit }: PrioritriListProps) {
-  const { data: prioritris, isLoading } = usePrioritris();
-  const deletePrioritri = useDeletePrioritri();
+export function PrioritryList({ onEdit }: PrioritryListProps) {
+  const { data: prioritries, isLoading } = usePrioritries();
+  const deletePrioritry = useDeletePrioritry();
 
   if (isLoading) return <p className="text-gray-400 text-sm">Loading...</p>;
-  if (!prioritris?.length) return <p className="text-gray-400 text-sm">No prioritris yet. Add one above.</p>;
+  if (!prioritries?.length) return <p className="text-gray-400 text-sm">No PrioriTries yet. Add one above.</p>;
 
-  const goals = prioritris.filter(p => p.type_name === 'Goal');
-  const bonuses = prioritris.filter(p => p.type_name === 'Bonus');
+  const goals = prioritries.filter(p => p.type_name === 'Goal');
+  const bonuses = prioritries.filter(p => p.type_name === 'Bonus');
 
-  const renderItem = (p: Prioritri) => (
+  const renderItem = (p: Prioritry) => (
     <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium">{p.name}</span>
@@ -34,8 +34,8 @@ export function PrioritriList({ onEdit }: PrioritriListProps) {
           Edit
         </button>
         <button
-          onClick={() => deletePrioritri.mutate(p.id)}
-          disabled={deletePrioritri.isPending}
+          onClick={() => deletePrioritry.mutate(p.id)}
+          disabled={deletePrioritry.isPending}
           className="text-xs text-red-500 hover:underline disabled:opacity-50"
         >
           Deactivate
