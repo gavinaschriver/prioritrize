@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../lib/supabase';
 import type { User, Session } from '@supabase/supabase-js';
 
 export function useAuth() {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,6 +35,7 @@ export function useAuth() {
   };
 
   const signOut = async () => {
+    queryClient.clear();
     await supabase.auth.signOut();
   };
 
