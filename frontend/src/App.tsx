@@ -3,6 +3,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { LoginPage } from './pages/LoginPage';
 import { DayTrackerPage } from './pages/DayTrackerPage';
 import { ManagePrioritriesPage } from './pages/ManagePrioritriesPage';
+import { ManageTodosPage } from './pages/ManageTodosPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -37,6 +38,16 @@ function App() {
               <ProtectedRoute>
                 <AppShell>
                   <ManagePrioritriesPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-todos"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <ManageTodosPage />
                 </AppShell>
               </ProtectedRoute>
             }

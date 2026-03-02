@@ -22,13 +22,23 @@ class DayPrioritrySummary(BaseModel):
     entries: list[EntryBrief]
 
 
+class TodoSummary(BaseModel):
+    id: UUID
+    name: str
+    point_value: int
+    completed_at: datetime | None
+    score: Decimal
+
+
 class DaySummary(BaseModel):
     date: str
     timezone: str
     goals: list[DayPrioritrySummary]
     bonuses: list[DayPrioritrySummary]
+    todos: list[TodoSummary]
     goals_subtotal: Decimal
     bonuses_subtotal: Decimal
+    todos_subtotal: Decimal
     daily_score: Decimal
 
 

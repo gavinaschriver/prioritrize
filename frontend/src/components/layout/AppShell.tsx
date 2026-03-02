@@ -25,6 +25,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             >
               Manage
             </Link>
+            <Link
+              to="/manage-todos"
+              className={`text-sm ${location.pathname === '/manage-todos' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              Todos
+            </Link>
             <button
               onClick={signOut}
               className="text-sm text-gray-500 hover:text-gray-700"
