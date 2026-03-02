@@ -49,13 +49,33 @@ export interface DayPrioritrySummary {
   entries: EntryBrief[];
 }
 
+export interface Todo {
+  id: string;
+  user_id: string;
+  name: string;
+  point_value: number;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface TodoSummary {
+  id: string;
+  name: string;
+  point_value: number;
+  completed_at: string | null;
+  score: number;
+}
+
 export interface DaySummary {
   date: string;
   timezone: string;
   goals: DayPrioritrySummary[];
   bonuses: DayPrioritrySummary[];
+  todos: TodoSummary[];
   goals_subtotal: number;
   bonuses_subtotal: number;
+  todos_subtotal: number;
   daily_score: number;
 }
 

@@ -4,6 +4,7 @@ import { useDaySummary } from '../hooks/useDaySummary';
 import { CurrentBalance } from '../components/day-tracker/CurrentBalance';
 import { DateNavigator } from '../components/day-tracker/DateNavigator';
 import { YesterdayPrompt } from '../components/day-tracker/YesterdayPrompt';
+import { TodosSection } from '../components/day-tracker/TodosSection';
 import { GoalsSection } from '../components/day-tracker/GoalsSection';
 import { BonusesSection } from '../components/day-tracker/BonusesSection';
 import { DailyScoreSummary } from '../components/day-tracker/DailyScoreSummary';
@@ -33,6 +34,10 @@ export function DayTrackerPage() {
 
       {summary && (
         <>
+          <TodosSection
+            todos={summary.todos}
+            subtotal={Number(summary.todos_subtotal)}
+          />
           <GoalsSection
             goals={summary.goals}
             subtotal={Number(summary.goals_subtotal)}

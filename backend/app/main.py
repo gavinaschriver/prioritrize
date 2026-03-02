@@ -3,7 +3,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
 from app.database import get_pool, close_pool
-from app.routers import auth, prioritries, entries, days
+from app.routers import auth, prioritries, entries, days, todos
 
 
 @asynccontextmanager
@@ -27,6 +27,7 @@ app.include_router(auth.router)
 app.include_router(prioritries.router)
 app.include_router(entries.router)
 app.include_router(days.router)
+app.include_router(todos.router)
 
 
 @app.get("/api/health")

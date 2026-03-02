@@ -3,7 +3,7 @@ from uuid import UUID
 from decimal import Decimal
 from datetime import date as date_type
 from app.utils.timezone import get_day_boundaries_utc, get_today_str
-from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, BalanceOut
+from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, BalanceOut
 
 
 def to_uuid(user_id: str) -> UUID:
@@ -90,14 +90,51 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     goals_subtotal = sum(g.total_value for g in goals)
     bonuses_subtotal = sum(b.total_value for b in bonuses)
 
+    # Fetch todos created before end_utc
+    todo_rows = await conn.fetch(
+        """
+        SELECT id, name, point_value, completed_at
+        FROM todo
+        WHERE user_id = $1
+          AND created_at < $2
+        ORDER BY created_at ASC
+        """,
+        uid, end_utc,
+    )
+
+    todos = []
+    for t in todo_rows:
+        completed_at = t["completed_at"]
+        if completed_at is not None and completed_at < start_utc:
+            # Completed before this day — no effect
+            continue
+        elif completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
+            # Completed on this day — positive score
+            score = Decimal(t["point_value"])
+        else:
+            # Incomplete (or completed after this day) — penalty
+            score = -Decimal(t["point_value"])
+
+        todos.append(TodoSummary(
+            id=t["id"],
+            name=t["name"],
+            point_value=t["point_value"],
+            completed_at=completed_at,
+            score=score,
+        ))
+
+    todos_subtotal = sum(t.score for t in todos)
+
     return DaySummary(
         date=date_str,
         timezone=tz_str,
         goals=goals,
         bonuses=bonuses,
+        todos=todos,
         goals_subtotal=goals_subtotal,
         bonuses_subtotal=bonuses_subtotal,
-        daily_score=goals_subtotal + bonuses_subtotal,
+        todos_subtotal=todos_subtotal,
+        daily_score=goals_subtotal + bonuses_subtotal + todos_subtotal,
     )
 
 
