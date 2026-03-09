@@ -64,7 +64,42 @@ export interface TodoSummary {
   name: string;
   point_value: number;
   completed_at: string | null;
+  created_at: string;
   score: number;
+}
+
+export interface Project {
+  id: string;
+  user_id: string;
+  name: string;
+  point_value: number;
+  due_date: string;
+  overview: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectUpdate {
+  id: string;
+  project_id: string;
+  user_id: string;
+  body: string;
+  created_at: string;
+}
+
+export interface ProjectDetail extends Project {
+  updates: ProjectUpdate[];
+}
+
+export interface ProjectSummary {
+  id: string;
+  name: string;
+  point_value: number;
+  due_date: string;
+  completed_at: string | null;
+  score: number;
+  is_upcoming: boolean;
 }
 
 export interface DaySummary {
@@ -73,9 +108,11 @@ export interface DaySummary {
   goals: DayPrioritrySummary[];
   bonuses: DayPrioritrySummary[];
   todos: TodoSummary[];
+  projects: ProjectSummary[];
   goals_subtotal: number;
   bonuses_subtotal: number;
   todos_subtotal: number;
+  projects_subtotal: number;
   daily_score: number;
 }
 

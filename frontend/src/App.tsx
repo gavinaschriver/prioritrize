@@ -4,6 +4,8 @@ import { LoginPage } from './pages/LoginPage';
 import { DayTrackerPage } from './pages/DayTrackerPage';
 import { ManagePrioritriesPage } from './pages/ManagePrioritriesPage';
 import { ManageTodosPage } from './pages/ManageTodosPage';
+import { ManageProjectsPage } from './pages/ManageProjectsPage';
+import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -48,6 +50,26 @@ function App() {
               <ProtectedRoute>
                 <AppShell>
                   <ManageTodosPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/manage-projects"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <ManageProjectsPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/projects/:id"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <ProjectDetailPage />
                 </AppShell>
               </ProtectedRoute>
             }

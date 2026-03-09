@@ -23,13 +23,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               to="/manage"
               className={`text-sm ${location.pathname === '/manage' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
             >
-              Manage
+              Dailies
             </Link>
             <Link
               to="/manage-todos"
               className={`text-sm ${location.pathname === '/manage-todos' ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
             >
               Todos
+            </Link>
+            <Link
+              to="/manage-projects"
+              className={`text-sm ${location.pathname === '/manage-projects' || location.pathname.startsWith('/projects/') ? 'text-blue-600 font-medium' : 'text-gray-600 hover:text-gray-900'}`}
+            >
+              Projects
             </Link>
             <button
               onClick={signOut}

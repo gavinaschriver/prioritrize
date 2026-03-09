@@ -1,15 +1,18 @@
 import { useState } from 'react';
-import { PrioritryRow } from './PrioritryRow';
-import type { DayPrioritrySummary } from '../../types';
+import { ProjectRow } from './ProjectRow';
+import type { ProjectSummary } from '../../types';
 
-interface GoalsSectionProps {
-  goals: DayPrioritrySummary[];
+interface ProjectsSectionProps {
+  projects: ProjectSummary[];
   subtotal: number;
-  selectedDate: string;
 }
 
-export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProps) {
+export function ProjectsSection({ projects, subtotal }: ProjectsSectionProps) {
   const [open, setOpen] = useState(true);
+
+  const upcoming = projects.filter(p => p.is_upcoming);
+  const active = projects.filter(p => !p.is_upcoming);
+
   const subtotalColor = subtotal >= 0 ? 'text-green-600' : 'text-red-600';
 
   return (
@@ -20,7 +23,7 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
           <span>{open ? '▾' : '▸'}</span>
-          <span>Daily Goals</span>
+          <span>Projects</span>
         </button>
         <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
           {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
@@ -32,15 +35,27 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
             <div className="flex-1">Name</div>
             <div className="w-8"></div>
             <div className="w-12 text-right">Pts</div>
-            <div className="w-10 text-center">#</div>
-            <div className="w-14 text-right">Total</div>
+            <div className="w-14 text-right">Score</div>
           </div>
-          {goals.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">No goals yet. Add some in Manage.</p>
+
+          {active.length === 0 && upcoming.length === 0 && (
+            <p className="text-sm text-gray-400 py-2">No active projects.</p>
           )}
-          {goals.map(g => (
-            <PrioritryRow key={g.prioritry_id} item={g} isBonus={false} selectedDate={selectedDate} />
+
+          {active.map(p => (
+            <ProjectRow key={p.id} item={p} />
           ))}
+
+          {upcoming.length > 0 && (
+            <>
+              {active.length > 0 && <div className="mt-2" />}
+              <p className="text-xs text-gray-400 uppercase tracking-wide mb-1">Upcoming</p>
+              {upcoming.map(p => (
+                <ProjectRow key={p.id} item={p} />
+              ))}
+            </>
+          )}
+
           <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
             <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
               {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}

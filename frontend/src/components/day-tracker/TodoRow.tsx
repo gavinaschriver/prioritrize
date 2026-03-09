@@ -20,6 +20,9 @@ export function TodoRow({ item }: TodoRowProps) {
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm">{item.name}</span>
+          <span className="ml-2 text-xs text-gray-400">
+            {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' })}
+          </span>
         </div>
         <button
           onClick={() => completeTodo.mutate(item.id)}

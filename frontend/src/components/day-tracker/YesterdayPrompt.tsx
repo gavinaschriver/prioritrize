@@ -1,13 +1,30 @@
 import { useState } from 'react';
 
+const STORAGE_KEY = 'ypt_dismissed';
+
+function getYesterdayStr(): string {
+  const d = new Date();
+  d.setDate(d.getDate() - 1);
+  return d.toLocaleDateString('en-CA');
+}
+
 interface YesterdayPromptProps {
   onGoToYesterday: () => void;
 }
 
 export function YesterdayPrompt({ onGoToYesterday }: YesterdayPromptProps) {
-  const [dismissed, setDismissed] = useState(false);
+  const yesterdayStr = getYesterdayStr();
+  const [dismissed, setDismissed] = useState(
+    () => localStorage.getItem(STORAGE_KEY) === yesterdayStr
+  );
 
   if (dismissed) return null;
+
+  const handleDismiss = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    localStorage.setItem(STORAGE_KEY, yesterdayStr);
+    setDismissed(true);
+  };
 
   return (
     <div className="relative w-full mb-4">
@@ -18,10 +35,7 @@ export function YesterdayPrompt({ onGoToYesterday }: YesterdayPromptProps) {
         Click to wrap up yesterday's logging
       </button>
       <button
-        onClick={(e) => {
-          e.stopPropagation();
-          setDismissed(true);
-        }}
+        onClick={handleDismiss}
         className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-400 hover:text-amber-600 text-lg leading-none px-1"
         aria-label="Dismiss"
       >

@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, date
 from uuid import UUID
 from decimal import Decimal
 
@@ -27,7 +27,18 @@ class TodoSummary(BaseModel):
     name: str
     point_value: int
     completed_at: datetime | None
+    created_at: datetime
     score: Decimal
+
+
+class ProjectSummary(BaseModel):
+    id: UUID
+    name: str
+    point_value: int
+    due_date: date
+    completed_at: datetime | None
+    score: Decimal
+    is_upcoming: bool
 
 
 class DaySummary(BaseModel):
@@ -36,9 +47,11 @@ class DaySummary(BaseModel):
     goals: list[DayPrioritrySummary]
     bonuses: list[DayPrioritrySummary]
     todos: list[TodoSummary]
+    projects: list[ProjectSummary]
     goals_subtotal: Decimal
     bonuses_subtotal: Decimal
     todos_subtotal: Decimal
+    projects_subtotal: Decimal
     daily_score: Decimal
 
 

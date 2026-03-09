@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { TodoRow } from './TodoRow';
 import type { TodoSummary } from '../../types';
 
+type SortField = 'created_at' | 'point_value';
+type SortDir = 'asc' | 'desc';
+
 interface TodosSectionProps {
   todos: TodoSummary[];
   subtotal: number;
@@ -9,18 +12,54 @@ interface TodosSectionProps {
 
 export function TodosSection({ todos, subtotal }: TodosSectionProps) {
   const [open, setOpen] = useState(true);
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'created_at', dir: 'desc' });
   const subtotalColor = subtotal >= 0 ? 'text-green-600' : 'text-red-600';
+
+  const toggleSort = (field: SortField) => {
+    setSort(prev =>
+      prev.field === field
+        ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+        : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
+    );
+  };
+
+  const sorted = [...todos].sort((a, b) => {
+    let cmp: number;
+    if (sort.field === 'created_at') {
+      cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    } else {
+      cmp = a.point_value - b.point_value;
+    }
+    return sort.dir === 'asc' ? cmp : -cmp;
+  });
+
+  const sortIcon = (field: SortField) =>
+    sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓';
 
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
-        >
-          <span>{open ? '▾' : '▸'}</span>
-          <span>Todos</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setOpen(o => !o)}
+            className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
+          >
+            <span>{open ? '▾' : '▸'}</span>
+            <span>Todos</span>
+          </button>
+          <button
+            onClick={() => toggleSort('point_value')}
+            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === 'point_value' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+          >
+            pts {sortIcon('point_value')}
+          </button>
+          <button
+            onClick={() => toggleSort('created_at')}
+            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === 'created_at' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+          >
+            added {sortIcon('created_at')}
+          </button>
+        </div>
         <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
           {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
         </span>
@@ -28,7 +67,7 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
       {open && (
         <>
           <div className="flex items-center gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
-            <div className="flex-1">Name</div>
+            <div className="flex-1">Name / Added</div>
             <div className="w-8"></div>
             <div className="w-12 text-right">Pts</div>
             <div className="w-14 text-right">Score</div>
@@ -36,7 +75,7 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
           {todos.length === 0 && (
             <p className="text-sm text-gray-400 py-2">No active todos. Add some in Manage Todos.</p>
           )}
-          {todos.map(t => (
+          {sorted.map(t => (
             <TodoRow key={t.id} item={t} />
           ))}
           <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
