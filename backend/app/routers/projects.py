@@ -71,3 +71,24 @@ async def add_update(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await project_service.add_update(conn, project_id, user["id"], data)
+
+
+@router.put("/{project_id}/updates/{update_id}", response_model=ProjectUpdateOut)
+async def edit_update(
+    project_id: UUID,
+    update_id: UUID,
+    data: ProjectUpdateCreate,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.edit_update(conn, update_id, user["id"], data)
+
+
+@router.delete("/{project_id}/updates/{update_id}")
+async def delete_update(
+    project_id: UUID,
+    update_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.delete_update(conn, update_id, user["id"])

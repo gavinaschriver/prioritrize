@@ -136,3 +136,29 @@ async def add_update(conn: asyncpg.Connection, project_id: UUID, user_id: str, d
         project_id, uid, data.body,
     )
     return ProjectUpdateOut(**dict(row))
+
+
+async def edit_update(conn: asyncpg.Connection, update_id: UUID, user_id: str, data: ProjectUpdateCreate) -> ProjectUpdateOut:
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        """
+        UPDATE project_update SET body = $1
+        WHERE id = $2 AND user_id = $3
+        RETURNING id, project_id, user_id, body, created_at
+        """,
+        data.body, update_id, uid,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Update not found")
+    return ProjectUpdateOut(**dict(row))
+
+
+async def delete_update(conn: asyncpg.Connection, update_id: UUID, user_id: str) -> dict:
+    uid = to_uuid(user_id)
+    result = await conn.execute(
+        "DELETE FROM project_update WHERE id = $1 AND user_id = $2",
+        update_id, uid,
+    )
+    if result == "DELETE 0":
+        raise HTTPException(status_code=404, detail="Update not found")
+    return {"deleted": True}

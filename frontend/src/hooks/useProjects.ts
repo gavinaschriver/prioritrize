@@ -74,3 +74,25 @@ export function useAddProjectUpdate(projectId: string) {
     },
   });
 }
+
+export function useEditProjectUpdate(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ updateId, body }: { updateId: string; body: string }) =>
+      api.put(`/api/projects/${projectId}/updates/${updateId}`, { body }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+  });
+}
+
+export function useDeleteProjectUpdate(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (updateId: string) =>
+      api.delete(`/api/projects/${projectId}/updates/${updateId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+  });
+}
