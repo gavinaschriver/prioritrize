@@ -19,7 +19,7 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
           <span>{open ? '▾' : '▸'}</span>
-          <span>Bonuses</span>
+          <span>Day Bonuses</span>
         </button>
         <span className="text-sm font-bold font-mono text-green-600">
           +{Number(subtotal).toFixed(subtotal % 1 === 0 ? 0 : 1)}
