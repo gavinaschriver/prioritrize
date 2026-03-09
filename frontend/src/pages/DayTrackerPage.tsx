@@ -10,6 +10,7 @@ import { BonusesSection } from '../components/day-tracker/BonusesSection';
 import { ProjectsSection } from '../components/day-tracker/ProjectsSection';
 import { DailyScoreSummary } from '../components/day-tracker/DailyScoreSummary';
 import { EntryList } from '../components/day-tracker/EntryList';
+import { ScratchPad } from '../components/day-tracker/ScratchPad';
 
 export function DayTrackerPage() {
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
@@ -57,6 +58,8 @@ export function DayTrackerPage() {
           <EntryList summary={summary} />
         </>
       )}
+
+      <ScratchPad />
     </div>
   );
 }
