@@ -3,8 +3,89 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   useProject, useUpdateProject, useCompleteProject, useDeleteProject,
   useAddProjectUpdate, useEditProjectUpdate, useDeleteProjectUpdate,
+  useCreateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
 } from '../hooks/useProjects';
+import type { ProjectTask } from '../types';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
+
+function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
+  const [taskName, setTaskName] = useState('');
+  const [taskPts, setTaskPts] = useState('');
+  const [taskDue, setTaskDue] = useState('');
+  const createTask = useCreateProjectTask(projectId);
+  const completeTask = useCompleteProjectTask(projectId);
+  const deleteTask = useDeleteProjectTask(projectId);
+
+  const handleAdd = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskName.trim()) return;
+    const pv = taskPts.trim() !== '' ? parseInt(taskPts) : 0;
+    await createTask.mutateAsync({ name: taskName, point_value: isNaN(pv) ? 0 : pv, due_date: taskDue || null });
+    setTaskName(''); setTaskPts(''); setTaskDue('');
+  };
+
+  return (
+    <div>
+      <h2 className="text-lg font-bold text-gray-800 mb-3">Tasks</h2>
+      {tasks.length === 0 && <p className="text-sm text-gray-400 mb-3">No tasks yet.</p>}
+      <div className="space-y-1 mb-3">
+        {tasks.map(t => (
+          <div key={t.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${t.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+            <span className={`flex-1 min-w-0 ${t.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>
+              {t.name}
+            </span>
+            {t.due_date && <span className="text-xs text-gray-400 shrink-0">{t.due_date}</span>}
+            {t.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{t.point_value}pts</span>}
+            {!t.completed_at && (
+              <button
+                onClick={() => completeTask.mutate(t.id)}
+                disabled={completeTask.isPending}
+                className="w-7 h-7 flex items-center justify-center bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 disabled:opacity-40 shrink-0"
+                title="Mark complete"
+              >✓</button>
+            )}
+            <button
+              onClick={() => deleteTask.mutate(t.id)}
+              disabled={deleteTask.isPending}
+              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0"
+              title="Delete task"
+            >✕</button>
+          </div>
+        ))}
+      </div>
+      <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            placeholder="Task name"
+            value={taskName}
+            onChange={e => setTaskName(e.target.value)}
+            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+          <input
+            type="number"
+            min={0}
+            placeholder="pts"
+            value={taskPts}
+            onChange={e => setTaskPts(e.target.value)}
+            className="w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+          />
+          <input
+            type="date"
+            value={taskDue}
+            onChange={e => setTaskDue(e.target.value)}
+            className="w-36 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+          />
+          <button
+            type="submit"
+            disabled={createTask.isPending || !taskName.trim()}
+            className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 shrink-0"
+          >Add</button>
+        </div>
+      </form>
+    </div>
+  );
+}
 
 // Inline edit/delete for a single update entry
 function UpdateEntry({
@@ -94,8 +175,8 @@ export function ProjectDetailPage() {
   useEffect(() => {
     if (project) {
       setName(project.name);
-      setPointValue(String(project.point_value));
-      setDueDate(project.due_date);
+      setPointValue(project.point_value != null ? String(project.point_value) : '');
+      setDueDate(project.due_date ?? '');
       setOverview(project.overview ?? '');
     }
   }, [project]);
@@ -106,15 +187,18 @@ export function ProjectDetailPage() {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaveError('');
-    const parsed = parseInt(pointValue);
-    if (isNaN(parsed) || parsed < 40) {
-      setSaveError('Point value must be at least 40');
-      return;
+    let parsedPv: number | null = null;
+    if (pointValue.trim() !== '') {
+      parsedPv = parseInt(pointValue);
+      if (isNaN(parsedPv) || parsedPv < 0) {
+        setSaveError('Point value must be 0 or greater');
+        return;
+      }
     }
     try {
       await updateProject.mutateAsync({
         id: id!,
-        data: { name, point_value: parsed, due_date: dueDate, overview: overview || undefined },
+        data: { name, point_value: parsedPv, due_date: dueDate || null, overview: overview || undefined },
       });
       setEditing(false);
     } catch (err: any) {
@@ -133,8 +217,8 @@ export function ProjectDetailPage() {
 
   const handleCancelEdit = () => {
     setName(project.name);
-    setPointValue(String(project.point_value));
-    setDueDate(project.due_date);
+    setPointValue(project.point_value != null ? String(project.point_value) : '');
+    setDueDate(project.due_date ?? '');
     setOverview(project.overview ?? '');
     setSaveError('');
     setEditing(false);
@@ -188,22 +272,22 @@ export function ProjectDetailPage() {
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-gray-500">Point Value (min 40)</label>
+                <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(optional)</span></label>
                 <input
                   type="number"
-                  min={40}
+                  min={0}
                   value={pointValue}
                   onChange={e => setPointValue(e.target.value)}
+                  placeholder="—"
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                 />
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-500">Due Date</label>
+                <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
                 <input
                   type="date"
                   value={dueDate}
                   onChange={e => setDueDate(e.target.value)}
-                  required
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
                 />
               </div>
@@ -240,9 +324,15 @@ export function ProjectDetailPage() {
               </button>
             </div>
 
-            <div className="flex gap-4 text-sm text-gray-500">
-              <span>{project.point_value} pts</span>
-              <span>due {project.due_date}</span>
+            <div className="flex gap-4 text-sm text-gray-500 flex-wrap">
+              {project.point_value != null
+                ? <span>{project.point_value} pts</span>
+                : <span className="text-gray-300 italic">no point value</span>
+              }
+              {project.due_date
+                ? <span>due {project.due_date}</span>
+                : <span className="text-gray-300 italic">rolling (no due date)</span>
+              }
               {project.completed_at && <span className="text-green-600">✓ completed</span>}
             </div>
 
@@ -265,6 +355,8 @@ export function ProjectDetailPage() {
           </div>
         )}
       </div>
+
+      <TasksSection projectId={id!} tasks={project.tasks} />
 
       <div>
         <h2 className="text-lg font-bold text-gray-800 mb-4">Updates</h2>

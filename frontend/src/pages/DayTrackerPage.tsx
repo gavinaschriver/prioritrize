@@ -7,7 +7,7 @@ import { YesterdayPrompt } from '../components/day-tracker/YesterdayPrompt';
 import { TodosSection } from '../components/day-tracker/TodosSection';
 import { GoalsSection } from '../components/day-tracker/GoalsSection';
 import { BonusesSection } from '../components/day-tracker/BonusesSection';
-import { ProjectsSection } from '../components/day-tracker/ProjectsSection';
+import { DeadlinesSection } from '../components/day-tracker/DeadlinesSection';
 import { DailyScoreSummary } from '../components/day-tracker/DailyScoreSummary';
 import { EntryList } from '../components/day-tracker/EntryList';
 import { ScratchPad } from '../components/day-tracker/ScratchPad';
@@ -36,9 +36,9 @@ export function DayTrackerPage() {
 
       {summary && (
         <>
-          <ProjectsSection
-            projects={summary.projects}
-            subtotal={Number(summary.projects_subtotal)}
+          <DeadlinesSection
+            deadlines={summary.deadlines}
+            subtotal={Number(summary.deadlines_subtotal)}
           />
           <TodosSection
             todos={summary.todos}

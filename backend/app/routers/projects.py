@@ -3,7 +3,11 @@ from uuid import UUID
 import asyncpg
 from app.auth import get_current_user
 from app.database import get_conn
-from app.models.project import ProjectCreate, ProjectUpdate, ProjectUpdateCreate, ProjectOut, ProjectDetailOut, ProjectUpdateOut
+from app.models.project import (
+    ProjectCreate, ProjectUpdate, ProjectUpdateCreate,
+    ProjectOut, ProjectDetailOut, ProjectUpdateOut,
+    ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
+)
 from app.services import project_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -63,6 +67,8 @@ async def delete_project(
     return await project_service.delete_project(conn, project_id, user["id"])
 
 
+# --- Updates ---
+
 @router.post("/{project_id}/updates", response_model=ProjectUpdateOut, status_code=201)
 async def add_update(
     project_id: UUID,
@@ -92,3 +98,46 @@ async def delete_update(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await project_service.delete_update(conn, update_id, user["id"])
+
+
+# --- Tasks ---
+
+@router.post("/{project_id}/tasks", response_model=ProjectTaskOut, status_code=201)
+async def create_task(
+    project_id: UUID,
+    data: ProjectTaskCreate,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.create_task(conn, project_id, user["id"], data)
+
+
+@router.put("/{project_id}/tasks/{task_id}", response_model=ProjectTaskOut)
+async def update_task(
+    project_id: UUID,
+    task_id: UUID,
+    data: ProjectTaskUpdate,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.update_task(conn, task_id, user["id"], data)
+
+
+@router.post("/{project_id}/tasks/{task_id}/complete", response_model=ProjectTaskOut)
+async def complete_task(
+    project_id: UUID,
+    task_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.complete_task(conn, task_id, user["id"])
+
+
+@router.delete("/{project_id}/tasks/{task_id}")
+async def delete_task(
+    project_id: UUID,
+    task_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.delete_task(conn, task_id, user["id"])

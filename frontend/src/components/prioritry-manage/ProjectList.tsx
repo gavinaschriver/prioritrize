@@ -16,8 +16,13 @@ export function ProjectList() {
             <Link to={`/projects/${p.id}`} className="text-sm font-medium hover:underline text-blue-700">
               {p.name}
             </Link>
-            <span className="ml-2 text-xs text-gray-400">{p.point_value} pts</span>
-            <span className="ml-2 text-xs text-gray-400">due {p.due_date}</span>
+            {p.point_value != null && (
+              <span className="ml-2 text-xs text-gray-400">{p.point_value} pts</span>
+            )}
+            {p.due_date
+              ? <span className="ml-2 text-xs text-gray-400">due {p.due_date}</span>
+              : <span className="ml-2 text-xs text-gray-300 italic">rolling</span>
+            }
             {p.completed_at && (
               <span className="ml-2 text-xs text-green-600">✓ completed</span>
             )}
