@@ -69,6 +69,15 @@ export function MarkdownRenderer({ text, onCheckboxToggle, className }: Markdown
           );
         }
 
+        // Bullet points: - item or * item (but not [ ] checkboxes)
+        if (/^[-*] /.test(line))
+          return (
+            <div key={i} className="flex items-start gap-2">
+              <span className="text-gray-400 mt-0.5 shrink-0 text-xs">•</span>
+              <p className="text-sm text-gray-700">{parseInline(line.slice(2))}</p>
+            </div>
+          );
+
         // Empty line → spacer
         if (line.trim() === '')
           return <div key={i} className="h-2" />;
