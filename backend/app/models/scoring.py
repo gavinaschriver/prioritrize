@@ -31,10 +31,13 @@ class TodoSummary(BaseModel):
     score: Decimal
 
 
-class ProjectSummary(BaseModel):
+class DeadlineSummary(BaseModel):
     id: UUID
+    type: str  # 'project' | 'task'
     name: str
-    point_value: int
+    project_id: UUID | None  # tasks only
+    project_name: str | None  # tasks only
+    point_value: int | None
     due_date: date
     completed_at: datetime | None
     score: Decimal
@@ -47,11 +50,11 @@ class DaySummary(BaseModel):
     goals: list[DayPrioritrySummary]
     bonuses: list[DayPrioritrySummary]
     todos: list[TodoSummary]
-    projects: list[ProjectSummary]
+    deadlines: list[DeadlineSummary]
     goals_subtotal: Decimal
     bonuses_subtotal: Decimal
     todos_subtotal: Decimal
-    projects_subtotal: Decimal
+    deadlines_subtotal: Decimal
     daily_score: Decimal
 
 

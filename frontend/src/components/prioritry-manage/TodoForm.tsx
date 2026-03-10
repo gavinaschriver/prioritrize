@@ -13,8 +13,8 @@ export function TodoForm() {
     setError('');
 
     const parsed = parseInt(pointValue);
-    if (isNaN(parsed) || parsed < 1) {
-      setError('Point value must be at least 1');
+    if (isNaN(parsed) || parsed < 0) {
+      setError('Point value must be 0 or greater');
       return;
     }
 
@@ -42,10 +42,10 @@ export function TodoForm() {
       />
 
       <div>
-        <label className="text-xs text-gray-500">Point Value (min 1)</label>
+        <label className="text-xs text-gray-500">Point Value (0 = reminder only)</label>
         <input
           type="number"
-          min={1}
+          min={0}
           value={pointValue}
           onChange={e => setPointValue(e.target.value)}
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"

@@ -5,12 +5,12 @@ from uuid import UUID
 
 class TodoCreate(BaseModel):
     name: str
-    point_value: int = Field(default=1, gt=0)
+    point_value: int = Field(default=1, ge=0)
 
 
 class TodoUpdate(BaseModel):
     name: str | None = None
-    point_value: int | None = Field(default=None, gt=0)
+    point_value: int | None = Field(default=None, ge=0)
 
 
 class TodoOut(BaseModel):

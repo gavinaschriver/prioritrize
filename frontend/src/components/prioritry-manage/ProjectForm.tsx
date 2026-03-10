@@ -3,7 +3,7 @@ import { useCreateProject } from '../../hooks/useProjects';
 
 export function ProjectForm() {
   const [name, setName] = useState('');
-  const [pointValue, setPointValue] = useState('40');
+  const [pointValue, setPointValue] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [overview, setOverview] = useState('');
   const [error, setError] = useState('');
@@ -14,25 +14,24 @@ export function ProjectForm() {
     e.preventDefault();
     setError('');
 
-    const parsed = parseInt(pointValue);
-    if (isNaN(parsed) || parsed < 40) {
-      setError('Point value must be at least 40');
-      return;
-    }
-    if (!dueDate) {
-      setError('Due date is required');
-      return;
+    let parsedPv: number | null = null;
+    if (pointValue.trim() !== '') {
+      parsedPv = parseInt(pointValue);
+      if (isNaN(parsedPv) || parsedPv < 0) {
+        setError('Point value must be 0 or greater');
+        return;
+      }
     }
 
     try {
       await createProject.mutateAsync({
         name,
-        point_value: parsed,
-        due_date: dueDate,
+        point_value: parsedPv,
+        due_date: dueDate || null,
         overview: overview || undefined,
       });
       setName('');
-      setPointValue('40');
+      setPointValue('');
       setDueDate('');
       setOverview('');
     } catch (err: any) {
@@ -56,29 +55,29 @@ export function ProjectForm() {
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Point Value (min 40)</label>
+          <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(optional)</span></label>
           <input
             type="number"
-            min={40}
+            min={0}
             value={pointValue}
             onChange={e => setPointValue(e.target.value)}
+            placeholder="—"
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Due Date</label>
+          <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
           <input
             type="date"
             value={dueDate}
             onChange={e => setDueDate(e.target.value)}
-            required
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
       </div>
 
       <div>
-        <label className="text-xs text-gray-500">Overview (optional)</label>
+        <label className="text-xs text-gray-500">Overview <span className="text-gray-300">(optional)</span></label>
         <textarea
           value={overview}
           onChange={e => setOverview(e.target.value)}

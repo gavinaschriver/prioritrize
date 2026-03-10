@@ -1,20 +1,36 @@
 import asyncpg
 from uuid import UUID
 from decimal import Decimal
-from datetime import date as date_type
+from datetime import date as date_type, date as date_cls
 from app.utils.timezone import get_day_boundaries_utc, get_today_str
-from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, ProjectSummary, BalanceOut
+from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, DeadlineSummary, BalanceOut
 
 
 def to_uuid(user_id: str) -> UUID:
     return UUID(user_id) if isinstance(user_id, str) else user_id
 
 
+def _deadline_score(point_value: int | None, due_date: date_cls, date_obj: date_cls, completed_at, start_utc, end_utc):
+    """Compute score for a due-dated item. Returns (score, is_upcoming)."""
+    pv = Decimal(point_value) if point_value else Decimal(0)
+    is_upcoming = due_date > date_obj
+    if is_upcoming:
+        return Decimal(0), True
+    if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
+        return pv, False
+    if completed_at is None:
+        return -pv, False
+    # completed before today — handled by WHERE clause, shouldn't reach here
+    return Decimal(0), False
+
+
 async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection) -> DaySummary:
     """Compute the full day summary for a given date."""
     uid = to_uuid(user_id)
     start_utc, end_utc = get_day_boundaries_utc(date_str, tz_str)
+    date_obj = date_cls.fromisoformat(date_str)
 
+    # --- Goals & Bonuses ---
     rows = await conn.fetch(
         """
         SELECT
@@ -34,8 +50,6 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         """,
         uid, end_utc,
     )
-
-    # Get all entries for this day
     entries = await conn.fetch(
         """
         SELECT e.id, e.prioritry_id, e.comment, e.created_at
@@ -47,8 +61,6 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         """,
         uid, start_utc, end_utc,
     )
-
-    # Group entries by prioritry_id
     entries_by_prioritry: dict[str, list[dict]] = {}
     for e in entries:
         pid = str(e["prioritry_id"])
@@ -56,18 +68,13 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
 
     goals = []
     bonuses = []
-
     for row in rows:
         pid = str(row["prioritry_id"])
         pri_entries = entries_by_prioritry.get(pid, [])
         entry_count = len(pri_entries)
-
         if row["type_name"] == "Goal":
-            if entry_count > 0:
-                total_value = Decimal(row["point_value"]) * entry_count
-            else:
-                total_value = -Decimal(row["point_value"])
-        else:  # Bonus
+            total_value = Decimal(row["point_value"]) * entry_count if entry_count > 0 else -Decimal(row["point_value"])
+        else:
             total_value = Decimal(row["point_value"]) * entry_count if entry_count > 0 else Decimal(0)
 
         summary = DayPrioritrySummary(
@@ -81,7 +88,6 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             total_value=total_value,
             entries=[EntryBrief(id=e["id"], comment=e["comment"], created_at=e["created_at"]) for e in pri_entries],
         )
-
         if row["type_name"] == "Goal":
             goals.append(summary)
         else:
@@ -90,45 +96,33 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     goals_subtotal = sum(g.total_value for g in goals)
     bonuses_subtotal = sum(b.total_value for b in bonuses)
 
-    # Fetch todos created before end_utc
+    # --- Todos ---
     todo_rows = await conn.fetch(
         """
         SELECT id, name, point_value, completed_at, created_at
         FROM todo
-        WHERE user_id = $1
-          AND created_at < $2
+        WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
         """,
         uid, end_utc,
     )
-
     todos = []
     for t in todo_rows:
         completed_at = t["completed_at"]
         if completed_at is not None and completed_at < start_utc:
-            # Completed before this day — no effect
             continue
         elif completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
-            # Completed on this day — positive score
             score = Decimal(t["point_value"])
         else:
-            # Incomplete (or completed after this day) — penalty
             score = -Decimal(t["point_value"])
-
         todos.append(TodoSummary(
-            id=t["id"],
-            name=t["name"],
-            point_value=t["point_value"],
-            completed_at=completed_at,
-            created_at=t["created_at"],
-            score=score,
+            id=t["id"], name=t["name"], point_value=t["point_value"],
+            completed_at=completed_at, created_at=t["created_at"], score=score,
         ))
-
     todos_subtotal = sum(t.score for t in todos)
 
-    # Fetch projects visible on this day
-    from datetime import date as date_type_local
-    date_obj = date_type_local.fromisoformat(date_str)
+    # --- Projects ---
+    # Fetch projects active on this day (not completed before today)
     project_rows = await conn.fetch(
         """
         SELECT id, name, point_value, due_date, completed_at
@@ -136,40 +130,73 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         WHERE user_id = $1
           AND created_at < $2
           AND (completed_at IS NULL OR completed_at >= $3)
-        ORDER BY due_date ASC
+        ORDER BY due_date ASC NULLS LAST
         """,
         uid, end_utc, start_utc,
     )
 
-    projects = []
+    deadlines = []
+    rolling_score = Decimal(0)
+
     for p in project_rows:
         due_date = p["due_date"]
         completed_at = p["completed_at"]
-        is_upcoming = due_date > date_obj
+        pv = p["point_value"]
 
-        if is_upcoming:
-            score = Decimal(0)
-        elif completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
-            # Completed today — positive
-            score = Decimal(p["point_value"])
-        elif completed_at is None:
-            # Overdue — penalty
-            score = -Decimal(p["point_value"])
+        if due_date is None:
+            # Rolling project — only scores if completed today
+            if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
+                rolling_score += Decimal(pv) if pv else Decimal(0)
+            # Not shown in deadlines list
         else:
-            # completed_at < start_utc handled by WHERE clause; skip
-            continue
+            score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
+            if completed_at is not None and completed_at < start_utc:
+                continue  # already counted in a past day
+            deadlines.append(DeadlineSummary(
+                id=p["id"], type='project', name=p["name"],
+                project_id=None, project_name=None,
+                point_value=pv, due_date=due_date,
+                completed_at=completed_at, score=score, is_upcoming=is_upcoming,
+            ))
 
-        projects.append(ProjectSummary(
-            id=p["id"],
-            name=p["name"],
-            point_value=p["point_value"],
-            due_date=due_date,
-            completed_at=completed_at,
-            score=score,
-            is_upcoming=is_upcoming,
-        ))
+    # --- Project Tasks ---
+    task_rows = await conn.fetch(
+        """
+        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at,
+               p.id AS project_id, p.name AS project_name
+        FROM project_task pt
+        JOIN project p ON p.id = pt.project_id
+        WHERE pt.user_id = $1
+          AND pt.created_at < $2
+          AND (pt.completed_at IS NULL OR pt.completed_at >= $3)
+        ORDER BY pt.due_date ASC NULLS LAST
+        """,
+        uid, end_utc, start_utc,
+    )
 
-    projects_subtotal = sum(p.score for p in projects)
+    for t in task_rows:
+        due_date = t["due_date"]
+        completed_at = t["completed_at"]
+        pv = t["point_value"]
+
+        if due_date is None:
+            # Undated task — +pts on completion day only
+            if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
+                rolling_score += Decimal(pv)
+        else:
+            score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
+            if completed_at is not None and completed_at < start_utc:
+                continue
+            deadlines.append(DeadlineSummary(
+                id=t["id"], type='task', name=t["name"],
+                project_id=t["project_id"], project_name=t["project_name"],
+                point_value=pv, due_date=due_date,
+                completed_at=completed_at, score=score, is_upcoming=is_upcoming,
+            ))
+
+    # Sort combined deadlines by due_date ASC (overdue first, then upcoming)
+    deadlines.sort(key=lambda d: d.due_date)
+    deadlines_subtotal = sum(d.score for d in deadlines)
 
     return DaySummary(
         date=date_str,
@@ -177,17 +204,16 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         goals=goals,
         bonuses=bonuses,
         todos=todos,
-        projects=projects,
+        deadlines=deadlines,
         goals_subtotal=goals_subtotal,
         bonuses_subtotal=bonuses_subtotal,
         todos_subtotal=todos_subtotal,
-        projects_subtotal=projects_subtotal,
-        daily_score=goals_subtotal + bonuses_subtotal + todos_subtotal + projects_subtotal,
+        deadlines_subtotal=deadlines_subtotal,
+        daily_score=goals_subtotal + bonuses_subtotal + todos_subtotal + deadlines_subtotal + rolling_score,
     )
 
 
 async def upsert_snapshot(user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection):
-    """Compute and upsert the daily snapshot for a past day."""
     uid = to_uuid(user_id)
     summary = await compute_day_score(user_id, date_str, tz_str, conn)
     await conn.execute(
@@ -203,14 +229,11 @@ async def upsert_snapshot(user_id: str, date_str: str, tz_str: str, conn: asyncp
 
 
 async def finalize_yesterday(user_id: str, tz_str: str, conn: asyncpg.Connection):
-    """Ensure yesterday's snapshot exists. Called on day summary access."""
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo
-
     uid = to_uuid(user_id)
     tz = ZoneInfo(tz_str)
     yesterday = (datetime.now(tz) - timedelta(days=1)).strftime("%Y-%m-%d")
-
     existing = await conn.fetchval(
         "SELECT id FROM daily_snapshot WHERE user_id = $1 AND date = $2",
         uid, date_type.fromisoformat(yesterday),
@@ -220,14 +243,9 @@ async def finalize_yesterday(user_id: str, tz_str: str, conn: asyncpg.Connection
 
 
 async def get_balance(user_id: str, tz_str: str, conn: asyncpg.Connection) -> BalanceOut:
-    """Get cumulative balance = sum of past snapshots + today's live score."""
     uid = to_uuid(user_id)
     today_str = get_today_str(tz_str)
-
-    # Finalize yesterday if needed
     await finalize_yesterday(user_id, tz_str, conn)
-
-    # Sum all past snapshots (excluding today)
     past_total = await conn.fetchval(
         """
         SELECT COALESCE(SUM(score), 0)
@@ -236,10 +254,7 @@ async def get_balance(user_id: str, tz_str: str, conn: asyncpg.Connection) -> Ba
         """,
         uid, date_type.fromisoformat(today_str),
     )
-
-    # Compute today's live score
     today_summary = await compute_day_score(user_id, today_str, tz_str, conn)
-
     return BalanceOut(
         past_total=past_total,
         today_score=today_summary.daily_score,

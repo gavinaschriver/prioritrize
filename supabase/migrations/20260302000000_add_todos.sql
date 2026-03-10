@@ -2,7 +2,7 @@ CREATE TABLE todo (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
-    point_value INT NOT NULL DEFAULT 1 CHECK (point_value > 0),
+    point_value INT NOT NULL DEFAULT 1 CHECK (point_value >= 0),
     completed_at TIMESTAMPTZ NULL,
     created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

@@ -72,8 +72,8 @@ export interface Project {
   id: string;
   user_id: string;
   name: string;
-  point_value: number;
-  due_date: string;
+  point_value: number | null;
+  due_date: string | null;
   overview: string | null;
   completed_at: string | null;
   created_at: string;
@@ -88,14 +88,30 @@ export interface ProjectUpdate {
   created_at: string;
 }
 
-export interface ProjectDetail extends Project {
-  updates: ProjectUpdate[];
-}
-
-export interface ProjectSummary {
+export interface ProjectTask {
   id: string;
+  project_id: string;
+  user_id: string;
   name: string;
   point_value: number;
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectDetail extends Project {
+  updates: ProjectUpdate[];
+  tasks: ProjectTask[];
+}
+
+export interface DeadlineSummary {
+  id: string;
+  type: 'project' | 'task';
+  name: string;
+  project_id: string | null;
+  project_name: string | null;
+  point_value: number | null;
   due_date: string;
   completed_at: string | null;
   score: number;
@@ -108,11 +124,11 @@ export interface DaySummary {
   goals: DayPrioritrySummary[];
   bonuses: DayPrioritrySummary[];
   todos: TodoSummary[];
-  projects: ProjectSummary[];
+  deadlines: DeadlineSummary[];
   goals_subtotal: number;
   bonuses_subtotal: number;
   todos_subtotal: number;
-  projects_subtotal: number;
+  deadlines_subtotal: number;
   daily_score: number;
 }
 

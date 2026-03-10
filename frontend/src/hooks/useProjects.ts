@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
-import type { Project, ProjectDetail } from '../types';
+import type { Project, ProjectDetail, ProjectTask } from '../types';
 
 export function useProjects() {
   return useQuery<Project[]>({
@@ -20,7 +20,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; point_value: number; due_date: string; overview?: string }) =>
+    mutationFn: (data: { name: string; point_value?: number | null; due_date?: string | null; overview?: string }) =>
       api.post('/api/projects', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -32,7 +32,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number; due_date?: string; overview?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number | null; due_date?: string | null; overview?: string } }) =>
       api.put(`/api/projects/${id}`, data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -93,6 +93,56 @@ export function useDeleteProjectUpdate(projectId: string) {
       api.delete(`/api/projects/${projectId}/updates/${updateId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+    },
+  });
+}
+
+// --- Task hooks ---
+
+export function useCreateProjectTask(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (data: { name: string; point_value?: number; due_date?: string | null }): Promise<ProjectTask> =>
+      api.post(`/api/projects/${projectId}/tasks`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+    },
+  });
+}
+
+export function useUpdateProjectTask(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ taskId, data }: { taskId: string; data: { name?: string; point_value?: number; due_date?: string | null } }): Promise<ProjectTask> =>
+      api.put(`/api/projects/${projectId}/tasks/${taskId}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+    },
+  });
+}
+
+export function useCompleteProjectTask(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string): Promise<ProjectTask> =>
+      api.post(`/api/projects/${projectId}/tasks/${taskId}/complete`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+    },
+  });
+}
+
+export function useDeleteProjectTask(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) =>
+      api.delete(`/api/projects/${projectId}/tasks/${taskId}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
     },
   });
 }
