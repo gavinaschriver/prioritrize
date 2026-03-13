@@ -99,7 +99,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Todos ---
     todo_rows = await conn.fetch(
         """
-        SELECT id, name, point_value, completed_at, created_at
+        SELECT id, name, point_value, due_date, completed_at, created_at
         FROM todo
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
@@ -117,7 +117,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             score = -Decimal(t["point_value"])
         todos.append(TodoSummary(
             id=t["id"], name=t["name"], point_value=t["point_value"],
-            completed_at=completed_at, created_at=t["created_at"], score=score,
+            due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"], score=score,
         ))
     todos_subtotal = sum(t.score for t in todos)
 
@@ -125,7 +125,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # Fetch projects active on this day (not completed before today)
     project_rows = await conn.fetch(
         """
-        SELECT id, name, point_value, due_date, completed_at
+        SELECT id, name, point_value, due_date, completed_at, created_at
         FROM project
         WHERE user_id = $1
           AND created_at < $2
@@ -155,14 +155,14 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             deadlines.append(DeadlineSummary(
                 id=p["id"], type='project', name=p["name"],
                 project_id=None, project_name=None,
-                point_value=pv, due_date=due_date,
+                point_value=pv, due_date=due_date, created_at=p["created_at"],
                 completed_at=completed_at, score=score, is_upcoming=is_upcoming,
             ))
 
     # --- Project Tasks ---
     task_rows = await conn.fetch(
         """
-        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at,
+        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at,
                p.id AS project_id, p.name AS project_name
         FROM project_task pt
         JOIN project p ON p.id = pt.project_id
@@ -190,7 +190,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             deadlines.append(DeadlineSummary(
                 id=t["id"], type='task', name=t["name"],
                 project_id=t["project_id"], project_name=t["project_name"],
-                point_value=pv, due_date=due_date,
+                point_value=pv, due_date=due_date, created_at=t["created_at"],
                 completed_at=completed_at, score=score, is_upcoming=is_upcoming,
             ))
 
