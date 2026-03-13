@@ -54,6 +54,7 @@ export interface Todo {
   user_id: string;
   name: string;
   point_value: number;
+  due_date: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -63,6 +64,7 @@ export interface TodoSummary {
   id: string;
   name: string;
   point_value: number;
+  due_date: string | null;
   completed_at: string | null;
   created_at: string;
   score: number;
@@ -113,6 +115,7 @@ export interface DeadlineSummary {
   project_name: string | null;
   point_value: number | null;
   due_date: string;
+  created_at: string;
   completed_at: string | null;
   score: number;
   is_upcoming: boolean;

@@ -4,6 +4,7 @@ import { useCreateTodo } from '../../hooks/useTodos';
 export function TodoForm() {
   const [name, setName] = useState('');
   const [pointValue, setPointValue] = useState('5');
+  const [dueDate, setDueDate] = useState('');
   const [error, setError] = useState('');
 
   const createTodo = useCreateTodo();
@@ -19,9 +20,10 @@ export function TodoForm() {
     }
 
     try {
-      await createTodo.mutateAsync({ name, point_value: parsed });
+      await createTodo.mutateAsync({ name, point_value: parsed, due_date: dueDate || null });
       setName('');
       setPointValue('5');
+      setDueDate('');
     } catch (err: any) {
       setError(err.message);
     }
@@ -41,15 +43,26 @@ export function TodoForm() {
         className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
       />
 
-      <div>
-        <label className="text-xs text-gray-500">Point Value (0 = reminder only)</label>
-        <input
-          type="number"
-          min={0}
-          value={pointValue}
-          onChange={e => setPointValue(e.target.value)}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-        />
+      <div className="flex gap-3">
+        <div className="flex-1">
+          <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(0 = reminder)</span></label>
+          <input
+            type="number"
+            min={0}
+            value={pointValue}
+            onChange={e => setPointValue(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+          />
+        </div>
+        <div className="flex-1">
+          <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
+          <input
+            type="date"
+            value={dueDate}
+            onChange={e => setDueDate(e.target.value)}
+            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
+          />
+        </div>
       </div>
 
       <button

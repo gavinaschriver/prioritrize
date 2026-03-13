@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { TodoRow } from './TodoRow';
 import type { TodoSummary } from '../../types';
 
-type SortField = 'created_at' | 'point_value';
+type SortField = 'created_at' | 'point_value' | 'due_date';
 type SortDir = 'asc' | 'desc';
 
 interface TodosSectionProps {
@@ -27,6 +27,10 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
     let cmp: number;
     if (sort.field === 'created_at') {
       cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    } else if (sort.field === 'due_date') {
+      const aD = a.due_date ? new Date(a.due_date).getTime() : Infinity;
+      const bD = b.due_date ? new Date(b.due_date).getTime() : Infinity;
+      cmp = aD - bD;
     } else {
       cmp = a.point_value - b.point_value;
     }
@@ -58,6 +62,12 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
             className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === 'created_at' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
           >
             added {sortIcon('created_at')}
+          </button>
+          <button
+            onClick={() => toggleSort('due_date')}
+            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === 'due_date' ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+          >
+            due {sortIcon('due_date')}
           </button>
         </div>
         <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
