@@ -3,18 +3,67 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   useProject, useUpdateProject, useCompleteProject, useDeleteProject,
   useAddProjectUpdate, useEditProjectUpdate, useDeleteProjectUpdate,
-  useCreateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
+  useCreateProjectTask, useUpdateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
 } from '../hooks/useProjects';
 import type { ProjectTask } from '../types';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
+
+function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
+  const [editing, setEditing] = useState(false);
+  const [name, setName] = useState(task.name);
+  const [pts, setPts] = useState(String(task.point_value));
+  const [due, setDue] = useState(task.due_date ?? '');
+  const updateTask = useUpdateProjectTask(projectId);
+  const completeTask = useCompleteProjectTask(projectId);
+  const deleteTask = useDeleteProjectTask(projectId);
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const pv = pts.trim() !== '' ? parseInt(pts) : 0;
+    await updateTask.mutateAsync({ taskId: task.id, data: { name, point_value: isNaN(pv) ? 0 : pv, due_date: due || null } });
+    setEditing(false);
+  };
+
+  if (editing) {
+    return (
+      <form onSubmit={handleSave} className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200 flex-wrap">
+        <input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus
+          className="flex-1 min-w-32 px-2 py-1 text-sm border border-gray-300 rounded" />
+        <input type="number" min={0} value={pts} onChange={e => setPts(e.target.value)} placeholder="pts"
+          className="w-14 px-2 py-1 text-sm border border-gray-300 rounded" />
+        <input type="date" value={due} onChange={e => setDue(e.target.value)}
+          className="w-36 px-2 py-1 text-sm border border-gray-300 rounded" />
+        <button type="submit" disabled={updateTask.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">Save</button>
+        <button type="button" onClick={() => { setName(task.name); setPts(String(task.point_value)); setDue(task.due_date ?? ''); setEditing(false); }}
+          className="text-xs text-gray-500 hover:underline">Cancel</button>
+      </form>
+    );
+  }
+
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+      <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.name}</span>
+      {task.due_date && <span className="text-xs text-gray-400 shrink-0">{task.due_date}</span>}
+      {task.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{task.point_value}pts</span>}
+      {!task.completed_at && (
+        <button onClick={() => setEditing(true)} className="text-gray-300 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
+      )}
+      {!task.completed_at && (
+        <button onClick={() => completeTask.mutate(task.id)} disabled={completeTask.isPending}
+          className="w-7 h-7 flex items-center justify-center bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 disabled:opacity-40 shrink-0"
+          title="Mark complete">✓</button>
+      )}
+      <button onClick={() => deleteTask.mutate(task.id)} disabled={deleteTask.isPending}
+        className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0" title="Delete">✕</button>
+    </div>
+  );
+}
 
 function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
   const [taskName, setTaskName] = useState('');
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const createTask = useCreateProjectTask(projectId);
-  const completeTask = useCompleteProjectTask(projectId);
-  const deleteTask = useDeleteProjectTask(projectId);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,29 +78,7 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
       <h2 className="text-lg font-bold text-gray-800 mb-3">Tasks</h2>
       {tasks.length === 0 && <p className="text-sm text-gray-400 mb-3">No tasks yet.</p>}
       <div className="space-y-1 mb-3">
-        {tasks.map(t => (
-          <div key={t.id} className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${t.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
-            <span className={`flex-1 min-w-0 ${t.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>
-              {t.name}
-            </span>
-            {t.due_date && <span className="text-xs text-gray-400 shrink-0">{t.due_date}</span>}
-            {t.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{t.point_value}pts</span>}
-            {!t.completed_at && (
-              <button
-                onClick={() => completeTask.mutate(t.id)}
-                disabled={completeTask.isPending}
-                className="w-7 h-7 flex items-center justify-center bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 disabled:opacity-40 shrink-0"
-                title="Mark complete"
-              >✓</button>
-            )}
-            <button
-              onClick={() => deleteTask.mutate(t.id)}
-              disabled={deleteTask.isPending}
-              className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0"
-              title="Delete task"
-            >✕</button>
-          </div>
-        ))}
+        {tasks.map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
       </div>
       <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
         <div className="flex gap-2">
