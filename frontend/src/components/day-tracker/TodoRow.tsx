@@ -15,8 +15,7 @@ function urgencyRowClass(item: TodoSummary): string {
 
   if (pct >= 1) return `bg-red-50 border border-red-200 ${base}`;
   if (pct >= 0.75) return `bg-orange-50 border border-orange-200 ${base}`;
-  if (pct >= 0.5) return `bg-yellow-50 border border-yellow-200 ${base}`;
-  return 'border-b border-gray-100';
+  return `bg-yellow-50 border border-yellow-200 ${base}`;
 }
 
 interface TodoRowProps {
