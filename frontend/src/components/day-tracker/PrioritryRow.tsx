@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useCreateEntry } from '../../hooks/useEntries';
 import type { DayPrioritrySummary } from '../../types';
+import { TagCommentInput } from './TagCommentInput';
 
 interface PrioritryRowProps {
   item: DayPrioritrySummary;
@@ -65,13 +66,11 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
       </div>
       {item.comments_enabled && (
         <div className="mt-1 ml-0">
-          <input
-            type="text"
-            placeholder="Comment (optional)"
+          <TagCommentInput
             value={comment}
-            onChange={e => setComment(e.target.value)}
-            onKeyDown={e => { if (e.key === 'Enter' && canAdd) handleAdd(); }}
-            className="w-full text-xs px-2 py-1 border border-gray-200 rounded focus:outline-none focus:ring-1 focus:ring-blue-400"
+            onChange={setComment}
+            placeholder="Comment or #tag,"
+            onSubmit={canAdd ? handleAdd : undefined}
           />
         </div>
       )}

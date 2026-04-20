@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useDeleteEntry, useUpdateEntryComment } from '../../hooks/useEntries';
 import type { DaySummary } from '../../types';
+import { TagCommentInput, CommentDisplay } from './TagCommentInput';
 
 interface EntryListProps {
   summary: DaySummary;
@@ -26,42 +27,34 @@ function EditableComment({
     setIsEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter') {
-      e.preventDefault();
-      save();
-    } else if (e.key === 'Escape') {
-      setValue(initialComment ?? '');
-      setIsEditing(false);
-    }
+  const cancel = () => {
+    setValue(initialComment ?? '');
+    setIsEditing(false);
   };
 
   if (isEditing) {
     return (
-      <input
-        type="text"
+      <TagCommentInput
         value={value}
-        onChange={e => setValue(e.target.value)}
+        onChange={setValue}
+        placeholder="Add a comment or #tag,"
+        onSubmit={save}
         onBlur={save}
-        onKeyDown={handleKeyDown}
+        onEscape={cancel}
         autoFocus
-        placeholder="Add a comment..."
-        className="w-full text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded px-1.5 py-0.5 mt-0.5 focus:outline-none focus:ring-1 focus:ring-blue-400"
+        className="mt-0.5 bg-gray-50"
       />
     );
   }
 
   return (
-    <p
+    <CommentDisplay
+      value={initialComment}
       onClick={() => {
         setValue(initialComment ?? '');
         setIsEditing(true);
       }}
-      className="text-xs text-gray-500 italic mt-0.5 cursor-pointer hover:text-gray-700 hover:bg-gray-50 rounded px-1 -mx-1 transition-colors"
-      title="Click to edit comment"
-    >
-      {initialComment || 'Add comment...'}
-    </p>
+    />
   );
 }
 
