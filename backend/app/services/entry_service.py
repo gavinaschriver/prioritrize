@@ -12,6 +12,36 @@ def to_uuid(val: str | UUID) -> UUID:
     return UUID(val) if isinstance(val, str) else val
 
 
+def parse_tags(comment: str | None) -> list[str]:
+    """Extract leading #tag segments from a comment string.
+    E.g. '#long walk, #muay thai, felt great' → ['long walk', 'muay thai']
+    """
+    if not comment:
+        return []
+    tags = []
+    for part in comment.split(', '):
+        if part.startswith('#'):
+            tag = part[1:].strip()
+            if tag:
+                tags.append(tag)
+        else:
+            break
+    return tags
+
+
+async def _sync_tags(
+    entry_id: UUID, user_id: UUID, comment: str | None, conn: asyncpg.Connection
+) -> None:
+    """Delete existing tags for an entry and re-insert from the current comment."""
+    await conn.execute("DELETE FROM entry_tag WHERE entry_id = $1", entry_id)
+    tags = parse_tags(comment)
+    if tags:
+        await conn.executemany(
+            "INSERT INTO entry_tag (entry_id, user_id, tag) VALUES ($1, $2, $3)",
+            [(entry_id, user_id, tag) for tag in tags],
+        )
+
+
 async def create_entry(
     user_id: str, data: EntryCreate, tz_str: str, conn: asyncpg.Connection
 ) -> EntryOut:
@@ -54,6 +84,7 @@ async def create_entry(
             """,
             pri_id, uid, data.comment, created_at,
         )
+        await _sync_tags(row["id"], uid, data.comment, conn)
         await upsert_snapshot(user_id, data.target_date, tz_str, conn)
     else:
         row = await conn.fetchrow(
@@ -64,6 +95,7 @@ async def create_entry(
             """,
             pri_id, uid, data.comment,
         )
+        await _sync_tags(row["id"], uid, data.comment, conn)
 
     return EntryOut(**dict(row), prioritry_name=prioritry["name"])
 
@@ -82,6 +114,8 @@ async def update_entry(
     )
     if not row:
         raise HTTPException(404, "Entry not found")
+
+    await _sync_tags(row["id"], uid, comment, conn)
 
     prioritry = await conn.fetchrow(
         "SELECT name FROM prioritry WHERE id = $1", row["prioritry_id"]

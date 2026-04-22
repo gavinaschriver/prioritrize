@@ -6,6 +6,7 @@ import { ManagePrioritriesPage } from './pages/ManagePrioritriesPage';
 import { ManageTodosPage } from './pages/ManageTodosPage';
 import { ManageProjectsPage } from './pages/ManageProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -70,6 +71,16 @@ function App() {
               <ProtectedRoute>
                 <AppShell>
                   <ProjectDetailPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <DashboardPage />
                 </AppShell>
               </ProtectedRoute>
             }
