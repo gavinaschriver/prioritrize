@@ -156,9 +156,15 @@ export interface TodoStats {
   completed_in_range: boolean;
 }
 
+export interface TagStats {
+  tag: string;
+  count: number;
+}
+
 export interface DashboardData {
   start: string;
   end: string;
   prioritry_stats: PrioritryStats[];
   todo_stats: TodoStats[];
+  tag_stats: TagStats[];
 }
