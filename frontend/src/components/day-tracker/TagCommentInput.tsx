@@ -65,20 +65,25 @@ export function TagCommentInput({
     onChange(serialized);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === ',') {
-      const trimmed = inputValue.trim();
-      if (trimmed.startsWith('#')) {
-        e.preventDefault();
-        const tagName = trimmed.slice(1).trim();
-        if (tagName) {
-          const newTags = [...tags, tagName];
-          setTags(newTags);
-          setInputValue('');
-          emit(newTags, '');
-        }
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    // Form a tag when the user types ", " after a #word(s) segment
+    if (val.startsWith('#') && val.endsWith(', ')) {
+      const tagName = val.slice(1, -2).trim();
+      if (tagName) {
+        const newTags = [...tags, tagName];
+        setTags(newTags);
+        setInputValue('');
+        emit(newTags, '');
+        return;
       }
-    } else if (e.key === 'Backspace' && inputValue === '' && tags.length > 0) {
+    }
+    setInputValue(val);
+    emit(tags, val);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Backspace' && inputValue === '' && tags.length > 0) {
       const newTags = tags.slice(0, -1);
       setTags(newTags);
       emit(newTags, '');
@@ -119,10 +124,7 @@ export function TagCommentInput({
       <input
         type="text"
         value={inputValue}
-        onChange={e => {
-          setInputValue(e.target.value);
-          emit(tags, e.target.value);
-        }}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
         onBlur={onBlur}
         autoFocus={autoFocus}

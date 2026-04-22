@@ -140,3 +140,25 @@ export interface Balance {
   today_score: number;
   current_balance: number;
 }
+
+export interface PrioritryStats {
+  prioritry_id: string;
+  name: string;
+  type_name: 'Goal' | 'Bonus';
+  timeblock: number | null;
+  entry_count: number;
+  total_minutes: number | null;
+}
+
+export interface TodoStats {
+  id: string;
+  name: string;
+  completed_in_range: boolean;
+}
+
+export interface DashboardData {
+  start: string;
+  end: string;
+  prioritry_stats: PrioritryStats[];
+  todo_stats: TodoStats[];
+}
