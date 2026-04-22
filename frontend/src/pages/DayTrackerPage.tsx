@@ -11,6 +11,7 @@ import { DeadlinesSection } from '../components/day-tracker/DeadlinesSection';
 import { DailyScoreSummary } from '../components/day-tracker/DailyScoreSummary';
 import { EntryList } from '../components/day-tracker/EntryList';
 import { ScratchPad } from '../components/day-tracker/ScratchPad';
+import { DailyNotes } from '../components/day-tracker/DailyNotes';
 
 export function DayTrackerPage() {
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
@@ -59,6 +60,7 @@ export function DayTrackerPage() {
         </>
       )}
 
+      <DailyNotes selectedDate={selectedDate} />
       <ScratchPad />
     </div>
   );
