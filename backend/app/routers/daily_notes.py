@@ -7,6 +7,7 @@ from app.services import daily_notes_service
 
 router = APIRouter(prefix="/api/daily-notes", tags=["daily-notes"])
 
+# test workflow
 
 @router.get("", response_model=DailyNotesOut)
 async def get_daily_notes(
