@@ -76,7 +76,7 @@ export function TodoList() {
   const { data: todos, isLoading } = useTodos();
   const deleteTodo = useDeleteTodo();
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'created_at', dir: 'desc' });
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
 
   if (isLoading) return <p className="text-gray-400 text-sm">Loading...</p>;
   if (!todos?.length) return <p className="text-gray-400 text-sm">No todos yet. Add one above.</p>;
@@ -99,7 +99,7 @@ export function TodoList() {
     setSort(prev =>
       prev.field === field
         ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { field, dir: field === 'point_value' ? 'asc' : 'desc' }
+        : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
     );
   };
 

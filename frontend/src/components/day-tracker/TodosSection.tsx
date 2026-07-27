@@ -12,7 +12,7 @@ interface TodosSectionProps {
 
 export function TodosSection({ todos, subtotal }: TodosSectionProps) {
   const [open, setOpen] = useState(true);
-  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'created_at', dir: 'desc' });
+  const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
   const subtotalColor = subtotal >= 0 ? 'text-green-600' : 'text-red-600';
 
   const toggleSort = (field: SortField) => {
