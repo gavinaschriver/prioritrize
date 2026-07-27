@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024" role="img" aria-label="PRIORI-TRIZE">
+  <rect width="1024" height="1024" fill="#1d4ed8"/>
+  <!-- Glyph kept inside the inner 80% safe zone (x/y 102..922) for maskable cropping -->
+  <g fill="#ffffff">
+    <!-- Three descending bars: the priority stack -->
+    <rect x="228" y="300" width="420" height="76" rx="38"/>
+    <rect x="228" y="474" width="300" height="76" rx="38"/>
+    <rect x="228" y="648" width="180" height="76" rx="38"/>
+    <!-- Check mark, aligned to the top bar -->
+    <path d="M672 690 L742 760 L880 622" fill="none" stroke="#ffffff" stroke-width="76" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

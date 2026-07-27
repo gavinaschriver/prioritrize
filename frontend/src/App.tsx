@@ -9,6 +9,7 @@ import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { DashboardPage } from './pages/DashboardPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
+import { UpdatePrompt } from './components/pwa/UpdatePrompt';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -22,6 +23,8 @@ const queryClient = new QueryClient({
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
+      {/* Outside BrowserRouter so the update prompt also shows on /login */}
+      <UpdatePrompt />
       <BrowserRouter>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
