@@ -7,6 +7,7 @@ import { ManageTodosPage } from './pages/ManageTodosPage';
 import { ManageProjectsPage } from './pages/ManageProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { SettingsPage } from './pages/SettingsPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 import { UpdatePrompt } from './components/pwa/UpdatePrompt';
@@ -84,6 +85,16 @@ function App() {
               <ProtectedRoute>
                 <AppShell>
                   <DashboardPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <SettingsPage />
                 </AppShell>
               </ProtectedRoute>
             }

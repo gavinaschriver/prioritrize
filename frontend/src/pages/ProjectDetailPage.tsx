@@ -13,6 +13,8 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
   const [name, setName] = useState(task.name);
   const [pts, setPts] = useState(String(task.point_value));
   const [due, setDue] = useState(task.due_date ?? '');
+  // The API returns 'HH:MM:SS'; <input type="time"> wants 'HH:MM'.
+  const [dueTime, setDueTime] = useState((task.due_time ?? '').slice(0, 5));
   const updateTask = useUpdateProjectTask(projectId);
   const completeTask = useCompleteProjectTask(projectId);
   const deleteTask = useDeleteProjectTask(projectId);
@@ -20,7 +22,11 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     const pv = pts.trim() !== '' ? parseInt(pts) : 0;
-    await updateTask.mutateAsync({ taskId: task.id, data: { name, point_value: isNaN(pv) ? 0 : pv, due_date: due || null } });
+    await updateTask.mutateAsync({
+      taskId: task.id,
+      // A time without a date has nothing to attach to.
+      data: { name, point_value: isNaN(pv) ? 0 : pv, due_date: due || null, due_time: (due && dueTime) || null },
+    });
     setEditing(false);
   };
 
@@ -33,8 +39,11 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
           className="w-14 px-2 py-1 text-sm border border-gray-300 rounded" />
         <input type="date" value={due} onChange={e => setDue(e.target.value)}
           className="w-36 px-2 py-1 text-sm border border-gray-300 rounded" />
+        <input type="time" value={dueTime} onChange={e => setDueTime(e.target.value)} disabled={!due}
+          title="Reminder time. Leave blank to use your default hour."
+          className="w-28 px-2 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-50 disabled:text-gray-400" />
         <button type="submit" disabled={updateTask.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">Save</button>
-        <button type="button" onClick={() => { setName(task.name); setPts(String(task.point_value)); setDue(task.due_date ?? ''); setEditing(false); }}
+        <button type="button" onClick={() => { setName(task.name); setPts(String(task.point_value)); setDue(task.due_date ?? ''); setDueTime((task.due_time ?? '').slice(0, 5)); setEditing(false); }}
           className="text-xs text-gray-500 hover:underline">Cancel</button>
       </form>
     );
@@ -43,7 +52,11 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
   return (
     <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
       <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.name}</span>
-      {task.due_date && <span className="text-xs text-gray-400 shrink-0">{task.due_date}</span>}
+      {task.due_date && (
+        <span className="text-xs text-gray-400 shrink-0">
+          {task.due_date}{task.due_time ? ` ${task.due_time.slice(0, 5)}` : ''}
+        </span>
+      )}
       {task.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{task.point_value}pts</span>}
       {!task.completed_at && (
         <button onClick={() => setEditing(true)} className="text-gray-300 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
@@ -63,14 +76,20 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
   const [taskName, setTaskName] = useState('');
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [taskTime, setTaskTime] = useState('');
   const createTask = useCreateProjectTask(projectId);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskName.trim()) return;
     const pv = taskPts.trim() !== '' ? parseInt(taskPts) : 0;
-    await createTask.mutateAsync({ name: taskName, point_value: isNaN(pv) ? 0 : pv, due_date: taskDue || null });
-    setTaskName(''); setTaskPts(''); setTaskDue('');
+    await createTask.mutateAsync({
+      name: taskName,
+      point_value: isNaN(pv) ? 0 : pv,
+      due_date: taskDue || null,
+      due_time: (taskDue && taskTime) || null,
+    });
+    setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskTime('');
   };
 
   return (
@@ -81,13 +100,13 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
         {tasks.map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
       </div>
       <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
             type="text"
             placeholder="Task name"
             value={taskName}
             onChange={e => setTaskName(e.target.value)}
-            className="flex-1 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="flex-1 min-w-32 px-2 py-1.5 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <input
             type="number"
@@ -102,6 +121,14 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
             value={taskDue}
             onChange={e => setTaskDue(e.target.value)}
             className="w-36 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+          />
+          <input
+            type="time"
+            value={taskTime}
+            onChange={e => setTaskTime(e.target.value)}
+            disabled={!taskDue}
+            title="Reminder time. Leave blank to use your default hour."
+            className="w-28 px-2 py-1.5 text-sm border border-gray-300 rounded-lg disabled:bg-gray-50 disabled:text-gray-400"
           />
           <button
             type="submit"

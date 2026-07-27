@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, BackgroundTasks, Depends
 from uuid import UUID
 import asyncpg
 from app.auth import get_current_user
@@ -8,7 +8,7 @@ from app.models.project import (
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
-from app.services import project_service
+from app.services import calendar_sync_service, project_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
 
@@ -24,10 +24,13 @@ async def list_projects(
 @router.post("", response_model=ProjectOut, status_code=201)
 async def create_project(
     data: ProjectCreate,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.create_project(conn, user["id"], data)
+    result = await project_service.create_project(conn, user["id"], data)
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)
@@ -43,28 +46,37 @@ async def get_project(
 async def update_project(
     project_id: UUID,
     data: ProjectUpdate,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.update_project(conn, project_id, user["id"], data)
+    result = await project_service.update_project(conn, project_id, user["id"], data)
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.post("/{project_id}/complete", response_model=ProjectOut)
 async def complete_project(
     project_id: UUID,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.complete_project(conn, project_id, user["id"])
+    result = await project_service.complete_project(conn, project_id, user["id"])
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.delete("/{project_id}")
 async def delete_project(
     project_id: UUID,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.delete_project(conn, project_id, user["id"])
+    result = await project_service.delete_project(conn, project_id, user["id"])
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 # --- Updates ---
@@ -106,10 +118,13 @@ async def delete_update(
 async def create_task(
     project_id: UUID,
     data: ProjectTaskCreate,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.create_task(conn, project_id, user["id"], data)
+    result = await project_service.create_task(conn, project_id, user["id"], data)
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.put("/{project_id}/tasks/{task_id}", response_model=ProjectTaskOut)
@@ -117,27 +132,36 @@ async def update_task(
     project_id: UUID,
     task_id: UUID,
     data: ProjectTaskUpdate,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.update_task(conn, task_id, user["id"], data)
+    result = await project_service.update_task(conn, task_id, user["id"], data)
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.post("/{project_id}/tasks/{task_id}/complete", response_model=ProjectTaskOut)
 async def complete_task(
     project_id: UUID,
     task_id: UUID,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.complete_task(conn, task_id, user["id"])
+    result = await project_service.complete_task(conn, task_id, user["id"])
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result
 
 
 @router.delete("/{project_id}/tasks/{task_id}")
 async def delete_task(
     project_id: UUID,
     task_id: UUID,
+    background: BackgroundTasks,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await project_service.delete_task(conn, task_id, user["id"])
+    result = await project_service.delete_task(conn, task_id, user["id"])
+    background.add_task(calendar_sync_service.sync_user_bg, user["id"])
+    return result

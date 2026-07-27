@@ -102,7 +102,7 @@ export function useDeleteProjectUpdate(projectId: string) {
 export function useCreateProjectTask(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; point_value?: number; due_date?: string | null }): Promise<ProjectTask> =>
+    mutationFn: (data: { name: string; point_value?: number; due_date?: string | null; due_time?: string | null }): Promise<ProjectTask> =>
       api.post(`/api/projects/${projectId}/tasks`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -114,7 +114,7 @@ export function useCreateProjectTask(projectId: string) {
 export function useUpdateProjectTask(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, data }: { taskId: string; data: { name?: string; point_value?: number; due_date?: string | null } }): Promise<ProjectTask> =>
+    mutationFn: ({ taskId, data }: { taskId: string; data: { name?: string; point_value?: number; due_date?: string | null; due_time?: string | null } }): Promise<ProjectTask> =>
       api.put(`/api/projects/${projectId}/tasks/${taskId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });

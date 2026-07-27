@@ -12,7 +12,7 @@ export function useTodos() {
 export function useCreateTodo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; point_value: number; due_date?: string | null }) =>
+    mutationFn: (data: { name: string; point_value: number; due_date?: string | null; due_time?: string | null }) =>
       api.post('/api/todos', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
@@ -24,7 +24,7 @@ export function useCreateTodo() {
 export function useUpdateTodo() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number; due_date?: string | null } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number; due_date?: string | null; due_time?: string | null } }) =>
       api.put(`/api/todos/${id}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
