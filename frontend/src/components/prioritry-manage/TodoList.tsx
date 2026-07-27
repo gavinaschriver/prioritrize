@@ -18,6 +18,8 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
   const [name, setName] = useState(todo.name);
   const [pointValue, setPointValue] = useState(String(todo.point_value));
   const [dueDate, setDueDate] = useState(todo.due_date ?? '');
+  // The API returns 'HH:MM:SS'; <input type="time"> wants 'HH:MM'.
+  const [dueTime, setDueTime] = useState((todo.due_time ?? '').slice(0, 5));
   const [error, setError] = useState('');
   const updateTodo = useUpdateTodo();
 
@@ -30,7 +32,15 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
       return;
     }
     try {
-      await updateTodo.mutateAsync({ id: todo.id, data: { name, point_value: parsed, due_date: dueDate || null } });
+      await updateTodo.mutateAsync({
+        id: todo.id,
+        data: {
+          name,
+          point_value: parsed,
+          due_date: dueDate || null,
+          due_time: (dueDate && dueTime) || null,
+        },
+      });
       onDone();
     } catch (err: any) {
       setError(err.message);
@@ -61,6 +71,14 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
         value={dueDate}
         onChange={e => setDueDate(e.target.value)}
         className="w-36 px-2 py-1 text-sm border border-gray-300 rounded"
+      />
+      <input
+        type="time"
+        value={dueTime}
+        onChange={e => setDueTime(e.target.value)}
+        disabled={!dueDate}
+        title="Reminder time. Leave blank to use your default hour."
+        className="w-28 px-2 py-1 text-sm border border-gray-300 rounded disabled:bg-gray-50 disabled:text-gray-400"
       />
       <button type="submit" disabled={updateTodo.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">
         Save

@@ -55,6 +55,8 @@ export interface Todo {
   name: string;
   point_value: number;
   due_date: string | null;
+  /** 'HH:MM:SS'. null means "use the Google Calendar default hour". */
+  due_time: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -97,6 +99,8 @@ export interface ProjectTask {
   name: string;
   point_value: number;
   due_date: string | null;
+  /** 'HH:MM:SS'. null means "use the Google Calendar default hour". */
+  due_time: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -167,4 +171,38 @@ export interface DashboardData {
   prioritry_stats: PrioritryStats[];
   todo_stats: TodoStats[];
   tag_stats: TagStats[];
+}
+
+export interface GoogleCalendarConnection {
+  connected: boolean;
+  status: 'connected' | 'needs_reauth' | 'error' | null;
+  google_account_email: string | null;
+  calendar_id: string | null;
+  timezone: string | null;
+  default_hour: number | null;
+  default_duration_minutes: number | null;
+  reminder_minutes: number[] | null;
+  roll_forward: boolean | null;
+  last_synced_at: string | null;
+  last_error: string | null;
+  synced_event_count: number;
+}
+
+export interface GoogleCalendarSettings {
+  timezone?: string;
+  default_hour?: number;
+  default_duration_minutes?: number;
+  reminder_minutes?: number[];
+  roll_forward?: boolean;
+}
+
+export interface GoogleSyncResult {
+  synced: boolean;
+  created: number;
+  updated: number;
+  deleted: number;
+  unchanged: number;
+  api_calls: number;
+  status: string | null;
+  error: string | null;
 }

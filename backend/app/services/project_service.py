@@ -50,7 +50,7 @@ async def get_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) 
     )
     task_rows = await conn.fetch(
         """
-        SELECT id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        SELECT id, project_id, user_id, name, point_value, due_date, due_time, completed_at, created_at, updated_at
         FROM project_task
         WHERE project_id = $1
         ORDER BY due_date ASC NULLS LAST, created_at ASC
@@ -191,11 +191,11 @@ async def create_task(conn: asyncpg.Connection, project_id: UUID, user_id: str, 
         raise HTTPException(status_code=404, detail="Project not found")
     row = await conn.fetchrow(
         """
-        INSERT INTO project_task (project_id, user_id, name, point_value, due_date)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, due_time)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING id, project_id, user_id, name, point_value, due_date, due_time, completed_at, created_at, updated_at
         """,
-        project_id, uid, data.name, data.point_value, data.due_date,
+        project_id, uid, data.name, data.point_value, data.due_date, data.due_time,
     )
     return ProjectTaskOut(**dict(row))
 
@@ -212,7 +212,7 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         row = await conn.fetchrow(
-            "SELECT id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at FROM project_task WHERE id = $1",
+            "SELECT id, project_id, user_id, name, point_value, due_date, due_time, completed_at, created_at, updated_at FROM project_task WHERE id = $1",
             task_id,
         )
         return ProjectTaskOut(**dict(row))
@@ -223,7 +223,7 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
         f"""
         UPDATE project_task SET {set_clauses}, updated_at = now()
         WHERE id = $1
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        RETURNING id, project_id, user_id, name, point_value, due_date, due_time, completed_at, created_at, updated_at
         """,
         task_id, *values,
     )
@@ -236,7 +236,7 @@ async def complete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -
         """
         UPDATE project_task SET completed_at = now(), updated_at = now()
         WHERE id = $1 AND user_id = $2
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        RETURNING id, project_id, user_id, name, point_value, due_date, due_time, completed_at, created_at, updated_at
         """,
         task_id, uid,
     )
