@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "prioritrize": {
+      "command": "/Users/gavinschriver/Desktop/workspace/prioritrize/mcp-server/.venv/bin/python",
+      "args": [
+        "/Users/gavinschriver/Desktop/workspace/prioritrize/mcp-server/server.py"
+      ]
+    }
+  }
+}

@@ -10,14 +10,18 @@ def to_uuid(user_id: str) -> UUID:
     return UUID(user_id) if isinstance(user_id, str) else user_id
 
 
-def _deadline_score(point_value: int | None, due_date: date_cls, date_obj: date_cls, completed_at, start_utc, end_utc):
-    """Compute score for a due-dated item. Returns (score, is_upcoming)."""
+def _deadline_score(point_value: int | None, due_date: date_cls | None, date_obj: date_cls, completed_at, start_utc, end_utc):
+    """Compute score for a todo/task/project. Returns (score, is_upcoming).
+
+    Completing it earns its points on the completion day, whenever that is.
+    Until then it only docks points once its due date has arrived; an item with
+    no due date never docks, it just sits in the list.
+    """
     pv = Decimal(point_value) if point_value else Decimal(0)
-    is_upcoming = due_date > date_obj
-    if is_upcoming:
-        return Decimal(0), True
     if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
         return pv, False
+    if due_date is None or due_date > date_obj:
+        return Decimal(0), True
     if completed_at is None:
         return -pv, False
     # completed before today — handled by WHERE clause, shouldn't reach here
@@ -99,7 +103,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Todos ---
     todo_rows = await conn.fetch(
         """
-        SELECT id, name, point_value, due_date, completed_at, created_at
+        SELECT id, name, point_value, due_date, completed_at, created_at, comment
         FROM todo
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
@@ -111,13 +115,13 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         completed_at = t["completed_at"]
         if completed_at is not None and completed_at < start_utc:
             continue
-        elif completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
-            score = Decimal(t["point_value"])
-        else:
-            score = -Decimal(t["point_value"])
+        score, is_upcoming = _deadline_score(
+            t["point_value"], t["due_date"], date_obj, completed_at, start_utc, end_utc
+        )
         todos.append(TodoSummary(
             id=t["id"], name=t["name"], point_value=t["point_value"],
-            due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"], score=score,
+            due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"],
+            score=score, is_upcoming=is_upcoming, comment=t["comment"],
         ))
     todos_subtotal = sum(t.score for t in todos)
 
@@ -162,7 +166,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Project Tasks ---
     task_rows = await conn.fetch(
         """
-        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at,
+        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at, pt.comment,
                p.id AS project_id, p.name AS project_name
         FROM project_task pt
         JOIN project p ON p.id = pt.project_id
@@ -179,23 +183,20 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         completed_at = t["completed_at"]
         pv = t["point_value"]
 
-        if due_date is None:
-            # Undated task — +pts on completion day only
-            if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
-                rolling_score += Decimal(pv)
-        else:
-            score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
-            if completed_at is not None and completed_at < start_utc:
-                continue
-            deadlines.append(DeadlineSummary(
-                id=t["id"], type='task', name=t["name"],
-                project_id=t["project_id"], project_name=t["project_name"],
-                point_value=pv, due_date=due_date, created_at=t["created_at"],
-                completed_at=completed_at, score=score, is_upcoming=is_upcoming,
-            ))
+        # Undated tasks are listed too — they never dock, they just earn on completion
+        score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
+        if completed_at is not None and completed_at < start_utc:
+            continue
+        deadlines.append(DeadlineSummary(
+            id=t["id"], type='task', name=t["name"],
+            project_id=t["project_id"], project_name=t["project_name"],
+            point_value=pv, due_date=due_date, created_at=t["created_at"],
+            completed_at=completed_at, score=score, is_upcoming=is_upcoming,
+            comment=t["comment"],
+        ))
 
-    # Sort combined deadlines by due_date ASC (overdue first, then upcoming)
-    deadlines.sort(key=lambda d: d.due_date)
+    # Sort combined deadlines by due_date ASC (overdue first, then upcoming, undated last)
+    deadlines.sort(key=lambda d: (d.due_date is None, d.due_date or date_cls.max))
     deadlines_subtotal = sum(d.score for d in deadlines)
 
     return DaySummary(

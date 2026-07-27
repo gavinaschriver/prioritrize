@@ -30,6 +30,8 @@ class TodoSummary(BaseModel):
     completed_at: datetime | None
     created_at: datetime
     score: Decimal
+    is_upcoming: bool
+    comment: str | None = None
 
 
 class DeadlineSummary(BaseModel):
@@ -39,11 +41,12 @@ class DeadlineSummary(BaseModel):
     project_id: UUID | None  # tasks only
     project_name: str | None  # tasks only
     point_value: int | None
-    due_date: date
+    due_date: date | None
     created_at: datetime
     completed_at: datetime | None
     score: Decimal
     is_upcoming: bool
+    comment: str | None = None
 
 
 class DaySummary(BaseModel):

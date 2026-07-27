@@ -33,12 +33,14 @@ class ProjectTaskCreate(BaseModel):
     name: str
     point_value: int = Field(default=0, ge=0)
     due_date: date | None = None
+    comment: str | None = None
 
 
 class ProjectTaskUpdate(BaseModel):
     name: str | None = None
     point_value: int | None = Field(default=None, ge=0)
     due_date: date | None = None
+    comment: str | None = None
 
 
 class ProjectTaskOut(BaseModel):
@@ -48,6 +50,7 @@ class ProjectTaskOut(BaseModel):
     name: str
     point_value: int
     due_date: date | None
+    comment: str | None
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

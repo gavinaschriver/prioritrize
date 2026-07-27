@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PrioritryRow } from './PrioritryRow';
+import { SectionSubtotal, formatScore } from './SectionSubtotal';
 import type { DayPrioritrySummary } from '../../types';
 
 interface BonusesSectionProps {
@@ -21,9 +22,9 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
           <span>{open ? '▾' : '▸'}</span>
           <span>Day Bonuses</span>
         </button>
-        <span className="text-sm font-bold font-mono text-green-600">
-          +{Number(subtotal).toFixed(subtotal % 1 === 0 ? 0 : 1)}
-        </span>
+        {!open && (
+          <span className="text-sm font-bold font-mono text-green-600">{formatScore(subtotal)}</span>
+        )}
       </div>
       {open && (
         <>
@@ -40,11 +41,7 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
           {bonuses.map(b => (
             <PrioritryRow key={b.prioritry_id} item={b} isBonus={true} selectedDate={selectedDate} />
           ))}
-          <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
-            <span className="text-sm font-bold font-mono text-green-600">
-              +{Number(subtotal).toFixed(subtotal % 1 === 0 ? 0 : 1)}
-            </span>
-          </div>
+          <SectionSubtotal label="Today's Bonuses Score" value={subtotal} />
         </>
       )}
     </div>

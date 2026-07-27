@@ -1,10 +1,12 @@
 import { useState } from 'react';
 import { useCreateTodo } from '../../hooks/useTodos';
+import { TagCommentInput } from '../day-tracker/TagCommentInput';
 
 export function TodoForm() {
   const [name, setName] = useState('');
   const [pointValue, setPointValue] = useState('5');
   const [dueDate, setDueDate] = useState('');
+  const [comment, setComment] = useState('');
   const [error, setError] = useState('');
 
   const createTodo = useCreateTodo();
@@ -20,10 +22,16 @@ export function TodoForm() {
     }
 
     try {
-      await createTodo.mutateAsync({ name, point_value: parsed, due_date: dueDate || null });
+      await createTodo.mutateAsync({
+        name,
+        point_value: parsed,
+        due_date: dueDate || null,
+        comment: comment.trim() || null,
+      });
       setName('');
       setPointValue('5');
       setDueDate('');
+      setComment('');
     } catch (err: any) {
       setError(err.message);
     }
@@ -63,6 +71,11 @@ export function TodoForm() {
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-500">Comment <span className="text-gray-300">(optional, editable later)</span></label>
+        <TagCommentInput value={comment} onChange={setComment} className="mt-1" />
       </div>
 
       <button

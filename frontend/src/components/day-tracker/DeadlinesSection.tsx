@@ -1,35 +1,43 @@
-import { useState } from 'react';
-import { DeadlineRow } from './DeadlineRow';
-import type { DeadlineSummary } from '../../types';
+import { useState } from "react";
+import { DeadlineRow } from "./DeadlineRow";
+import { SectionSubtotal, formatScore } from './SectionSubtotal';
+import type { DeadlineSummary } from "../../types";
 
 const DEFAULT_VISIBLE = 5;
 
 interface DeadlinesSectionProps {
   deadlines: DeadlineSummary[];
-  subtotal: number;
+  viewedDate: string;
 }
 
-export function DeadlinesSection({ deadlines, subtotal }: DeadlinesSectionProps) {
+export function DeadlinesSection({
+  deadlines,
+  viewedDate,
+}: DeadlinesSectionProps) {
   const [open, setOpen] = useState(true);
   const [showAll, setShowAll] = useState(false);
 
-  const subtotalColor = subtotal >= 0 ? 'text-green-600' : 'text-red-600';
-  const visible = showAll ? deadlines : deadlines.slice(0, DEFAULT_VISIBLE);
-  const hasMore = deadlines.length > DEFAULT_VISIBLE;
+  // Completed items leave the queue for the Completed Today list, so the subtotal
+  // shown here is always the sum of the rows you can see.
+  const pending = deadlines.filter((d) => d.completed_at === null);
+  const subtotal = pending.reduce((sum, d) => sum + Number(d.score), 0);
+  const subtotalColor = subtotal >= 0 ? "text-green-600" : "text-red-600";
+  const visible = showAll ? pending : pending.slice(0, DEFAULT_VISIBLE);
+  const hasMore = pending.length > DEFAULT_VISIBLE;
 
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
-          <span>{open ? '▾' : '▸'}</span>
-          <span>Upcoming Deadlines</span>
+          <span>{open ? "▾" : "▸"}</span>
+          <span>Tasks</span>
         </button>
-        <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-          {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-        </span>
+        {!open && (
+          <span className={`text-sm font-bold font-mono ${subtotalColor}`}>{formatScore(subtotal)}</span>
+        )}
       </div>
       {open && (
         <>
@@ -41,28 +49,34 @@ export function DeadlinesSection({ deadlines, subtotal }: DeadlinesSectionProps)
             <div className="w-14 text-right">Score</div>
           </div>
 
-          {deadlines.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">No deadline items. Add projects or tasks with due dates.</p>
+          {pending.length === 0 && (
+            <p className="text-sm text-gray-400 py-2">
+              Nothing left in the queue. Add projects or tasks to fill it.
+            </p>
           )}
 
-          {visible.map(d => (
-            <DeadlineRow key={`${d.type}-${d.id}`} item={d} />
-          ))}
+          <div className="space-y-1">
+            {visible.map((d) => (
+              <DeadlineRow
+                key={`${d.type}-${d.id}`}
+                item={d}
+                viewedDate={viewedDate}
+              />
+            ))}
+          </div>
 
           {hasMore && (
             <button
-              onClick={() => setShowAll(s => !s)}
+              onClick={() => setShowAll((s) => !s)}
               className="mt-2 text-xs text-blue-500 hover:underline"
             >
-              {showAll ? 'Show less' : `Show ${deadlines.length - DEFAULT_VISIBLE} more`}
+              {showAll
+                ? "Show less"
+                : `Show ${pending.length - DEFAULT_VISIBLE} more`}
             </button>
           )}
 
-          <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
-            <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-              {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-            </span>
-          </div>
+          <SectionSubtotal label="Today's Tasks Score" value={subtotal} />
         </>
       )}
     </div>

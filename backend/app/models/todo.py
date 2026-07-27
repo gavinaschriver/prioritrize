@@ -7,12 +7,14 @@ class TodoCreate(BaseModel):
     name: str
     point_value: int = Field(default=1, ge=0)
     due_date: date | None = None
+    comment: str | None = None
 
 
 class TodoUpdate(BaseModel):
     name: str | None = None
     point_value: int | None = Field(default=None, ge=0)
     due_date: date | None = None
+    comment: str | None = None
 
 
 class TodoOut(BaseModel):
@@ -21,6 +23,7 @@ class TodoOut(BaseModel):
     name: str
     point_value: int
     due_date: date | None
+    comment: str | None
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

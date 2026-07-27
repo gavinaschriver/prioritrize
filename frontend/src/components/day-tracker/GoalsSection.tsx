@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { PrioritryRow } from './PrioritryRow';
+import { SectionSubtotal, formatScore } from './SectionSubtotal';
 import type { DayPrioritrySummary } from '../../types';
 
 interface GoalsSectionProps {
@@ -22,9 +23,9 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
           <span>{open ? '▾' : '▸'}</span>
           <span>Daily Goals</span>
         </button>
-        <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-          {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-        </span>
+        {!open && (
+          <span className={`text-sm font-bold font-mono ${subtotalColor}`}>{formatScore(subtotal)}</span>
+        )}
       </div>
       {open && (
         <>
@@ -41,11 +42,7 @@ export function GoalsSection({ goals, subtotal, selectedDate }: GoalsSectionProp
           {goals.map(g => (
             <PrioritryRow key={g.prioritry_id} item={g} isBonus={false} selectedDate={selectedDate} />
           ))}
-          <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
-            <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-              {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-            </span>
-          </div>
+          <SectionSubtotal label="Today's Goals Score" value={subtotal} />
         </>
       )}
     </div>

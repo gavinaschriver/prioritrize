@@ -8,7 +8,7 @@ def to_uuid(val) -> UUID:
     return UUID(val) if isinstance(val, str) else val
 
 
-_COLS = "id, user_id, name, point_value, due_date, completed_at, created_at, updated_at"
+_COLS = "id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
 
 
 async def list_todos(conn: asyncpg.Connection, user_id: str) -> list[TodoOut]:
@@ -24,11 +24,11 @@ async def create_todo(conn: asyncpg.Connection, user_id: str, data: TodoCreate) 
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
         f"""
-        INSERT INTO todo (user_id, name, point_value, due_date)
-        VALUES ($1, $2, $3, $4)
+        INSERT INTO todo (user_id, name, point_value, due_date, comment)
+        VALUES ($1, $2, $3, $4, $5)
         RETURNING {_COLS}
         """,
-        uid, data.name, data.point_value, data.due_date,
+        uid, data.name, data.point_value, data.due_date, data.comment,
     )
     return TodoOut(**dict(row))
 
@@ -60,6 +60,17 @@ async def complete_todo(conn: asyncpg.Connection, todo_id: UUID, user_id: str) -
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
         f"UPDATE todo SET completed_at = now(), updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING {_COLS}",
+        todo_id, uid,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Todo not found")
+    return TodoOut(**dict(row))
+
+
+async def uncomplete_todo(conn: asyncpg.Connection, todo_id: UUID, user_id: str) -> TodoOut:
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        f"UPDATE todo SET completed_at = NULL, updated_at = now() WHERE id = $1 AND user_id = $2 RETURNING {_COLS}",
         todo_id, uid,
     )
     if not row:

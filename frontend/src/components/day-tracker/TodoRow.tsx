@@ -1,58 +1,49 @@
-import { useCompleteTodo } from '../../hooks/useTodos';
+import { useCompleteTodo, useUpdateTodo } from '../../hooks/useTodos';
+import { urgencyRowClass, formatDueDate } from '../../lib/urgency';
+import { EditableComment } from './EditableComment';
 import type { TodoSummary } from '../../types';
-
-function urgencyRowClass(item: TodoSummary): string {
-  const base = 'rounded-lg px-2 -mx-2';
-  const isCompleted = item.completed_at !== null;
-  if (isCompleted) return `bg-green-50 border border-green-200 ${base}`;
-  if (!item.due_date) return `bg-red-50 border border-red-200 ${base}`;
-
-  const now = Date.now();
-  const created = new Date(item.created_at).getTime();
-  const due = new Date(item.due_date + 'T23:59:59').getTime();
-  const total = due - created;
-  const pct = total > 0 ? (now - created) / total : 1;
-
-  if (pct >= 1) return `bg-red-50 border border-red-200 ${base}`;
-  if (pct >= 0.75) return `bg-orange-50 border border-orange-200 ${base}`;
-  return `bg-yellow-50 border border-yellow-200 ${base}`;
-}
 
 interface TodoRowProps {
   item: TodoSummary;
+  viewedDate: string;
 }
 
-export function TodoRow({ item }: TodoRowProps) {
+export function TodoRow({ item, viewedDate }: TodoRowProps) {
   const completeTodo = useCompleteTodo();
+  const updateTodo = useUpdateTodo();
+
   const score = Number(item.score);
-  const scoreColor = score > 0 ? 'text-green-600' : score < 0 ? 'text-red-600' : 'text-gray-500';
-  const isCompleted = item.completed_at !== null;
-  const rowBg = urgencyRowClass(item);
+  // Nothing is riding on it yet — no due date, or the due date hasn't arrived
+  const scoreDisplay = item.is_upcoming ? '—' : score > 0 ? `+${score}` : String(score);
+  const scoreColor = item.is_upcoming ? 'text-gray-400' : score > 0 ? 'text-green-600' : 'text-red-600';
 
   const addedDate = new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
-  const dueLabel = item.due_date
-    ? new Date(item.due_date + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric' })
-    : null;
+  const dueLabel = item.due_date ? formatDueDate(item.due_date) : null;
 
   return (
-    <div className={`py-2 ${rowBg}`}>
+    <div className={`py-2 ${urgencyRowClass(item.due_date, viewedDate)}`}>
       <div className="flex items-center gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm">{item.name}</span>
           <span className="ml-2 text-xs text-gray-400">{addedDate}</span>
           {dueLabel && <span className="ml-1 text-xs text-gray-400">· due {dueLabel}</span>}
         </div>
+        <span className="text-xs text-gray-300 shrink-0">todo</span>
         <button
           onClick={() => completeTodo.mutate(item.id)}
-          disabled={isCompleted || completeTodo.isPending}
+          disabled={completeTodo.isPending}
           className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-30 disabled:cursor-not-allowed"
-          title={isCompleted ? 'Completed' : 'Mark complete'}
+          title="Mark complete"
         >✓</button>
         <span className="w-12 text-right text-sm font-mono">{item.point_value}</span>
         <span className={`w-14 text-right text-sm font-mono font-bold ${scoreColor}`}>
-          {score > 0 ? '+' : ''}{score % 1 === 0 ? score : score.toFixed(1)}
+          {scoreDisplay}
         </span>
       </div>
+      <EditableComment
+        value={item.comment}
+        onSave={comment => updateTodo.mutate({ id: item.id, data: { comment } })}
+      />
     </div>
   );
 }

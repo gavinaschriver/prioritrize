@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { TodoRow } from './TodoRow';
+import { SectionSubtotal, formatScore } from './SectionSubtotal';
 import type { TodoSummary } from '../../types';
 
 type SortField = 'created_at' | 'point_value' | 'due_date';
@@ -7,12 +8,17 @@ type SortDir = 'asc' | 'desc';
 
 interface TodosSectionProps {
   todos: TodoSummary[];
-  subtotal: number;
+  viewedDate: string;
 }
 
-export function TodosSection({ todos, subtotal }: TodosSectionProps) {
+export function TodosSection({ todos, viewedDate }: TodosSectionProps) {
   const [open, setOpen] = useState(true);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
+
+  // Completed items leave the queue for the Completed Today list, so the subtotal
+  // shown here is always the sum of the rows you can see.
+  const pending = todos.filter(t => t.completed_at === null);
+  const subtotal = pending.reduce((sum, t) => sum + Number(t.score), 0);
   const subtotalColor = subtotal >= 0 ? 'text-green-600' : 'text-red-600';
 
   const toggleSort = (field: SortField) => {
@@ -23,7 +29,7 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
     );
   };
 
-  const sorted = [...todos].sort((a, b) => {
+  const sorted = [...pending].sort((a, b) => {
     let cmp: number;
     if (sort.field === 'created_at') {
       cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
@@ -70,9 +76,9 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
             due {sortIcon('due_date')}
           </button>
         </div>
-        <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-          {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-        </span>
+        {!open && (
+          <span className={`text-sm font-bold font-mono ${subtotalColor}`}>{formatScore(subtotal)}</span>
+        )}
       </div>
       {open && (
         <>
@@ -82,17 +88,15 @@ export function TodosSection({ todos, subtotal }: TodosSectionProps) {
             <div className="w-12 text-right">Pts</div>
             <div className="w-14 text-right">Score</div>
           </div>
-          {todos.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">No active todos. Add some in Manage Todos.</p>
+          {pending.length === 0 && (
+            <p className="text-sm text-gray-400 py-2">Nothing left in the queue.</p>
           )}
-          {sorted.map(t => (
-            <TodoRow key={t.id} item={t} />
-          ))}
-          <div className="flex justify-end pt-2 border-t border-gray-200 mt-1">
-            <span className={`text-sm font-bold font-mono ${subtotalColor}`}>
-              {subtotal >= 0 ? '+' : ''}{subtotal % 1 === 0 ? subtotal : Number(subtotal).toFixed(1)}
-            </span>
+          <div className="space-y-1">
+            {sorted.map(t => (
+              <TodoRow key={t.id} item={t} viewedDate={viewedDate} />
+            ))}
           </div>
+          <SectionSubtotal label="Today's Todos Score" value={subtotal} />
         </>
       )}
     </div>

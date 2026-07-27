@@ -7,6 +7,7 @@ import {
 } from '../hooks/useProjects';
 import type { ProjectTask } from '../types';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
+import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 
 function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
   const [editing, setEditing] = useState(false);
@@ -63,14 +64,20 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
   const [taskName, setTaskName] = useState('');
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
+  const [taskComment, setTaskComment] = useState('');
   const createTask = useCreateProjectTask(projectId);
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskName.trim()) return;
     const pv = taskPts.trim() !== '' ? parseInt(taskPts) : 0;
-    await createTask.mutateAsync({ name: taskName, point_value: isNaN(pv) ? 0 : pv, due_date: taskDue || null });
-    setTaskName(''); setTaskPts(''); setTaskDue('');
+    await createTask.mutateAsync({
+      name: taskName,
+      point_value: isNaN(pv) ? 0 : pv,
+      due_date: taskDue || null,
+      comment: taskComment.trim() || null,
+    });
+    setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskComment('');
   };
 
   return (
@@ -109,6 +116,11 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 shrink-0"
           >Add</button>
         </div>
+        <TagCommentInput
+          value={taskComment}
+          onChange={setTaskComment}
+          placeholder="Comment or #tag, (optional)"
+        />
       </form>
     </div>
   );

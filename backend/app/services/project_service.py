@@ -12,6 +12,9 @@ def to_uuid(val) -> UUID:
     return UUID(val) if isinstance(val, str) else val
 
 
+_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+
+
 async def list_projects(conn: asyncpg.Connection, user_id: str) -> list[ProjectOut]:
     uid = to_uuid(user_id)
     rows = await conn.fetch(
@@ -49,8 +52,8 @@ async def get_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) 
         project_id,
     )
     task_rows = await conn.fetch(
-        """
-        SELECT id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        f"""
+        SELECT {_TASK_COLS}
         FROM project_task
         WHERE project_id = $1
         ORDER BY due_date ASC NULLS LAST, created_at ASC
@@ -111,6 +114,21 @@ async def complete_project(conn: asyncpg.Connection, project_id: UUID, user_id: 
     row = await conn.fetchrow(
         """
         UPDATE project SET completed_at = now(), updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        """,
+        project_id, uid,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Project not found")
+    return ProjectOut(**dict(row))
+
+
+async def uncomplete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) -> ProjectOut:
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        """
+        UPDATE project SET completed_at = NULL, updated_at = now()
         WHERE id = $1 AND user_id = $2
         RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
         """,
@@ -190,12 +208,12 @@ async def create_task(conn: asyncpg.Connection, project_id: UUID, user_id: str, 
     if not exists:
         raise HTTPException(status_code=404, detail="Project not found")
     row = await conn.fetchrow(
-        """
-        INSERT INTO project_task (project_id, user_id, name, point_value, due_date)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        f"""
+        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, comment)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        RETURNING {_TASK_COLS}
         """,
-        project_id, uid, data.name, data.point_value, data.due_date,
+        project_id, uid, data.name, data.point_value, data.due_date, data.comment,
     )
     return ProjectTaskOut(**dict(row))
 
@@ -212,7 +230,7 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         row = await conn.fetchrow(
-            "SELECT id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at FROM project_task WHERE id = $1",
+            f"SELECT {_TASK_COLS} FROM project_task WHERE id = $1",
             task_id,
         )
         return ProjectTaskOut(**dict(row))
@@ -223,7 +241,7 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
         f"""
         UPDATE project_task SET {set_clauses}, updated_at = now()
         WHERE id = $1
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        RETURNING {_TASK_COLS}
         """,
         task_id, *values,
     )
@@ -233,10 +251,25 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
 async def complete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> ProjectTaskOut:
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
-        """
+        f"""
         UPDATE project_task SET completed_at = now(), updated_at = now()
         WHERE id = $1 AND user_id = $2
-        RETURNING id, project_id, user_id, name, point_value, due_date, completed_at, created_at, updated_at
+        RETURNING {_TASK_COLS}
+        """,
+        task_id, uid,
+    )
+    if not row:
+        raise HTTPException(status_code=404, detail="Task not found")
+    return ProjectTaskOut(**dict(row))
+
+
+async def uncomplete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> ProjectTaskOut:
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        f"""
+        UPDATE project_task SET completed_at = NULL, updated_at = now()
+        WHERE id = $1 AND user_id = $2
+        RETURNING {_TASK_COLS}
         """,
         task_id, uid,
     )

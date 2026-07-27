@@ -45,6 +45,15 @@ async def complete_todo(
     return await todo_service.complete_todo(conn, todo_id, user["id"])
 
 
+@router.post("/{todo_id}/uncomplete", response_model=TodoOut)
+async def uncomplete_todo(
+    todo_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await todo_service.uncomplete_todo(conn, todo_id, user["id"])
+
+
 @router.delete("/{todo_id}")
 async def delete_todo(
     todo_id: UUID,

@@ -58,6 +58,15 @@ async def complete_project(
     return await project_service.complete_project(conn, project_id, user["id"])
 
 
+@router.post("/{project_id}/uncomplete", response_model=ProjectOut)
+async def uncomplete_project(
+    project_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.uncomplete_project(conn, project_id, user["id"])
+
+
 @router.delete("/{project_id}")
 async def delete_project(
     project_id: UUID,
@@ -131,6 +140,16 @@ async def complete_task(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await project_service.complete_task(conn, task_id, user["id"])
+
+
+@router.post("/{project_id}/tasks/{task_id}/uncomplete", response_model=ProjectTaskOut)
+async def uncomplete_task(
+    project_id: UUID,
+    task_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.uncomplete_task(conn, task_id, user["id"])
 
 
 @router.delete("/{project_id}/tasks/{task_id}")
