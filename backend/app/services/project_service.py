@@ -6,6 +6,7 @@ from app.models.project import (
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
+from app.models.todo import TodoOut
 
 
 def to_uuid(val) -> UUID:
@@ -287,3 +288,33 @@ async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> 
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Task not found")
     return {"deleted": True}
+
+
+_TODO_COLS = "id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+
+
+async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> TodoOut:
+    """Detach a task from its project and put it back in the standalone todo list.
+    Everything except the project link and the id survives the move."""
+    uid = to_uuid(user_id)
+    task = await conn.fetchrow(
+        f"SELECT {_TASK_COLS} FROM project_task WHERE id = $1 AND user_id = $2",
+        task_id, uid,
+    )
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    async with conn.transaction():
+        todo = await conn.fetchrow(
+            f"""
+            INSERT INTO todo
+                (user_id, name, point_value, due_date, comment, completed_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7)
+            RETURNING {_TODO_COLS}
+            """,
+            uid, task["name"], task["point_value"], task["due_date"],
+            task["comment"], task["completed_at"], task["created_at"],
+        )
+        await conn.execute("DELETE FROM project_task WHERE id = $1", task_id)
+
+    return TodoOut(**dict(todo))

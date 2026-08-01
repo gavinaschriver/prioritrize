@@ -169,3 +169,16 @@ export function useDeleteProjectTask(projectId: string) {
     },
   });
 }
+
+export function useConvertTaskToTodo(projectId: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) =>
+      api.post(`/api/projects/${projectId}/tasks/${taskId}/convert-to-todo`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['project', projectId] });
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+    },
+  });
+}

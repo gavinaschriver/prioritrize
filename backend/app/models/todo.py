@@ -17,6 +17,10 @@ class TodoUpdate(BaseModel):
     comment: str | None = None
 
 
+class TodoConvertToTask(BaseModel):
+    project_id: UUID
+
+
 class TodoOut(BaseModel):
     id: UUID
     user_id: UUID

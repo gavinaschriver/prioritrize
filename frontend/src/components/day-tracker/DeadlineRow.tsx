@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { useCompleteProject, useCompleteProjectTask, useUpdateProjectTask } from '../../hooks/useProjects';
 import { urgencyRowClass, formatDueDate } from '../../lib/urgency';
 import { EditableComment } from './EditableComment';
+import { ConvertTaskToTodo } from '../shared/ConvertTaskToTodo';
 import type { DeadlineSummary } from '../../types';
 
 interface DeadlineRowProps {
@@ -95,6 +96,9 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
           </span>
         </div>
         <span className="text-xs text-gray-300 shrink-0">{item.type === 'task' ? 'task' : 'proj'}</span>
+        {item.type === 'task' && item.project_id && (
+          <ConvertTaskToTodo projectId={item.project_id} taskId={item.id} />
+        )}
         {item.type === 'task' && (
           <button
             onClick={() => {

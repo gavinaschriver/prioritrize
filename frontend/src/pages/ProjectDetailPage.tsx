@@ -8,6 +8,9 @@ import {
 import type { ProjectTask } from '../types';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
+import { EditableComment } from '../components/day-tracker/EditableComment';
+import { formatDueDate } from '../lib/urgency';
+import { ConvertTaskToTodo } from '../components/shared/ConvertTaskToTodo';
 
 function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
   const [editing, setEditing] = useState(false);
@@ -42,10 +45,14 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
   }
 
   return (
-    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+    <div className={`px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
+      <div className="flex items-center gap-2">
       <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.name}</span>
-      {task.due_date && <span className="text-xs text-gray-400 shrink-0">{task.due_date}</span>}
+      <span className="text-xs text-gray-400 shrink-0">
+        {task.due_date ? `due ${formatDueDate(task.due_date)}` : 'no due date'}
+      </span>
       {task.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{task.point_value}pts</span>}
+      <ConvertTaskToTodo projectId={projectId} taskId={task.id} />
       {!task.completed_at && (
         <button onClick={() => setEditing(true)} className="text-gray-300 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
       )}
@@ -56,11 +63,45 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
       )}
       <button onClick={() => deleteTask.mutate(task.id)} disabled={deleteTask.isPending}
         className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0" title="Delete">✕</button>
+      </div>
+      <EditableComment
+        value={task.comment}
+        onSave={comment => updateTask.mutate({ taskId: task.id, data: { comment } })}
+      />
     </div>
   );
 }
 
+type TaskSortField = 'due_date' | 'created_at';
+
+/** Uncompleted first (undated last within them), then completed, most recent first. */
+function sortTasks(tasks: ProjectTask[], field: TaskSortField, dir: 'asc' | 'desc'): ProjectTask[] {
+  const compare = (a: ProjectTask, b: ProjectTask) => {
+    let cmp: number;
+    if (field === 'due_date') {
+      // Undated tasks sink to the bottom in either direction — they aren't "later",
+      // they're just not on the clock.
+      if (!a.due_date || !b.due_date) {
+        if (a.due_date === b.due_date) cmp = 0;
+        else return a.due_date ? -1 : 1;
+      } else {
+        cmp = a.due_date < b.due_date ? -1 : a.due_date > b.due_date ? 1 : 0;
+      }
+    } else {
+      cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+    }
+    return dir === 'asc' ? cmp : -cmp;
+  };
+
+  const uncompleted = tasks.filter(t => t.completed_at === null).sort(compare);
+  const completed = tasks
+    .filter(t => t.completed_at !== null)
+    .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
+  return [...uncompleted, ...completed];
+}
+
 function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
+  const [sort, setSort] = useState<{ field: TaskSortField; dir: 'asc' | 'desc' }>({ field: 'due_date', dir: 'asc' });
   const [taskName, setTaskName] = useState('');
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
@@ -82,10 +123,25 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
 
   return (
     <div>
-      <h2 className="text-lg font-bold text-gray-800 mb-3">Tasks</h2>
+      <div className="flex items-center gap-2 mb-3">
+        <h2 className="text-lg font-bold text-gray-800">Tasks</h2>
+        {(['due_date', 'created_at'] as TaskSortField[]).map(field => (
+          <button
+            key={field}
+            onClick={() => setSort(prev =>
+              prev.field === field
+                ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+                : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
+            )}
+            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+          >
+            {field === 'due_date' ? 'due' : 'added'} {sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓'}
+          </button>
+        ))}
+      </div>
       {tasks.length === 0 && <p className="text-sm text-gray-400 mb-3">No tasks yet.</p>}
       <div className="space-y-1 mb-3">
-        {tasks.map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
+        {sortTasks(tasks, sort.field, sort.dir).map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
       </div>
       <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
         <div className="flex gap-2">

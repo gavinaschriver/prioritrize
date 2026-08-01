@@ -2,6 +2,7 @@ import asyncpg
 from uuid import UUID
 from fastapi import HTTPException
 from app.models.todo import TodoCreate, TodoUpdate, TodoOut
+from app.models.project import ProjectTaskOut
 
 
 def to_uuid(val) -> UUID:
@@ -87,3 +88,42 @@ async def delete_todo(conn: asyncpg.Connection, todo_id: UUID, user_id: str) -> 
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Todo not found")
     return {"deleted": True}
+
+
+_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+
+
+async def convert_to_task(
+    conn: asyncpg.Connection, todo_id: UUID, user_id: str, project_id: UUID
+) -> ProjectTaskOut:
+    """Move a todo into a project. Same row, different table: name, points, due date,
+    comment, completion state and original created_at all carry over. The id does not."""
+    uid = to_uuid(user_id)
+    todo = await conn.fetchrow(
+        f"SELECT {_COLS} FROM todo WHERE id = $1 AND user_id = $2",
+        todo_id, uid,
+    )
+    if not todo:
+        raise HTTPException(status_code=404, detail="Todo not found")
+
+    project_exists = await conn.fetchval(
+        "SELECT id FROM project WHERE id = $1 AND user_id = $2",
+        project_id, uid,
+    )
+    if not project_exists:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    async with conn.transaction():
+        task = await conn.fetchrow(
+            f"""
+            INSERT INTO project_task
+                (project_id, user_id, name, point_value, due_date, comment, completed_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+            RETURNING {_TASK_COLS}
+            """,
+            project_id, uid, todo["name"], todo["point_value"], todo["due_date"],
+            todo["comment"], todo["completed_at"], todo["created_at"],
+        )
+        await conn.execute("DELETE FROM todo WHERE id = $1", todo_id)
+
+    return ProjectTaskOut(**dict(task))

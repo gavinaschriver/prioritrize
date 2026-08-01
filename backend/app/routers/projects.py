@@ -8,6 +8,7 @@ from app.models.project import (
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
+from app.models.todo import TodoOut
 from app.services import project_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -150,6 +151,16 @@ async def uncomplete_task(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await project_service.uncomplete_task(conn, task_id, user["id"])
+
+
+@router.post("/{project_id}/tasks/{task_id}/convert-to-todo", response_model=TodoOut)
+async def convert_task_to_todo(
+    project_id: UUID,
+    task_id: UUID,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.convert_task_to_todo(conn, task_id, user["id"])
 
 
 @router.delete("/{project_id}/tasks/{task_id}")

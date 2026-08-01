@@ -3,7 +3,8 @@ from uuid import UUID
 import asyncpg
 from app.auth import get_current_user
 from app.database import get_conn
-from app.models.todo import TodoCreate, TodoUpdate, TodoOut
+from app.models.todo import TodoCreate, TodoUpdate, TodoOut, TodoConvertToTask
+from app.models.project import ProjectTaskOut
 from app.services import todo_service
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
@@ -52,6 +53,16 @@ async def uncomplete_todo(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await todo_service.uncomplete_todo(conn, todo_id, user["id"])
+
+
+@router.post("/{todo_id}/convert-to-task", response_model=ProjectTaskOut)
+async def convert_todo_to_task(
+    todo_id: UUID,
+    data: TodoConvertToTask,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await todo_service.convert_to_task(conn, todo_id, user["id"], data.project_id)
 
 
 @router.delete("/{todo_id}")

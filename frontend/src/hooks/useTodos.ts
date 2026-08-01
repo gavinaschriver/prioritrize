@@ -55,6 +55,20 @@ export function useUncompleteTodo() {
   });
 }
 
+export function useConvertTodoToTask() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ todoId, projectId }: { todoId: string; projectId: string }) =>
+      api.post(`/api/todos/${todoId}/convert-to-task`, { project_id: projectId }),
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['todos'] });
+      queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+    },
+  });
+}
+
 export function useDeleteTodo() {
   const queryClient = useQueryClient();
   return useMutation({
