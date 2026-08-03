@@ -1,7 +1,7 @@
-import { useState } from 'react';
-import { PrioritryRow } from './PrioritryRow';
-import { SectionSubtotal, formatScore } from './SectionSubtotal';
-import type { DayPrioritrySummary } from '../../types';
+import { useState } from "react";
+import { PrioritryRow } from "./PrioritryRow";
+import { SectionSubtotal, formatScore } from "./SectionSubtotal";
+import type { DayPrioritrySummary } from "../../types";
 
 interface BonusesSectionProps {
   bonuses: DayPrioritrySummary[];
@@ -9,21 +9,27 @@ interface BonusesSectionProps {
   selectedDate: string;
 }
 
-export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSectionProps) {
-  const [open, setOpen] = useState(true);
+export function BonusesSection({
+  bonuses,
+  subtotal,
+  selectedDate,
+}: BonusesSectionProps) {
+  const [open, setOpen] = useState(false);
 
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setOpen(o => !o)}
+          onClick={() => setOpen((o) => !o)}
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
-          <span>{open ? '▾' : '▸'}</span>
+          <span>{open ? "▾" : "▸"}</span>
           <span>Day Bonuses</span>
         </button>
         {!open && (
-          <span className="text-sm font-bold font-mono text-green-600">{formatScore(subtotal)}</span>
+          <span className="text-sm font-bold font-mono text-green-600">
+            {formatScore(subtotal)}
+          </span>
         )}
       </div>
       {open && (
@@ -38,8 +44,13 @@ export function BonusesSection({ bonuses, subtotal, selectedDate }: BonusesSecti
           {bonuses.length === 0 && (
             <p className="text-sm text-gray-400 py-2">No bonuses yet.</p>
           )}
-          {bonuses.map(b => (
-            <PrioritryRow key={b.prioritry_id} item={b} isBonus={true} selectedDate={selectedDate} />
+          {bonuses.map((b) => (
+            <PrioritryRow
+              key={b.prioritry_id}
+              item={b}
+              isBonus={true}
+              selectedDate={selectedDate}
+            />
           ))}
           <SectionSubtotal label="Today's Bonuses Score" value={subtotal} />
         </>

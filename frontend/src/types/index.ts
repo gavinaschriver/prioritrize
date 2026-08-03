@@ -173,3 +173,17 @@ export interface DashboardData {
   todo_stats: TodoStats[];
   tag_stats: TagStats[];
 }
+
+// amount/total arrive as strings — Pydantic serializes Decimal to string.
+export interface Spend {
+  id: string;
+  user_id: string;
+  amount: string;
+  comment: string | null;
+  created_at: string;
+}
+
+export interface SpendDay {
+  items: Spend[];
+  total: string;
+}
