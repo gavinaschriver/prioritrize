@@ -68,28 +68,28 @@ export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSection
       </div>
       {open && (
         <>
-          <div className="flex items-center gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
             <div className="flex-1 min-w-0">Name</div>
             <button
               onClick={() => toggleSort("due_date")}
-              className={`w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === "due_date" ? "text-blue-600" : ""}`}
+              className={`w-14 sm:w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === "due_date" ? "text-blue-600" : ""}`}
             >
               Due {sortIcon("due_date")}
             </button>
             <button
               onClick={() => toggleSort("created_at")}
-              className={`w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === "created_at" ? "text-blue-600" : ""}`}
+              className={`w-16 sm:w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === "created_at" ? "text-blue-600" : ""}`}
             >
               Added {sortIcon("created_at")}
             </button>
-            <div className="w-40 shrink-0"></div>
+            <div className="hidden sm:block w-40 shrink-0"></div>
             <button
               onClick={() => toggleSort("point_value")}
-              className={`w-14 shrink-0 text-right hover:text-gray-700 ${sort.field === "point_value" ? "text-blue-600" : ""}`}
+              className={`w-9 sm:w-14 shrink-0 text-right hover:text-gray-700 ${sort.field === "point_value" ? "text-blue-600" : ""}`}
             >
               Pts {sortIcon("point_value")}
             </button>
-            <div className="w-14 text-right shrink-0">Score</div>
+            <div className="w-10 sm:w-14 text-right shrink-0">Score</div>
           </div>
           {pending.length === 0 && (
             <p className="text-sm text-gray-400 py-2">

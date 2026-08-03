@@ -102,56 +102,72 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
     );
   }
 
+  const convertEditActions = (
+    <>
+      <ConvertTodoToTask todoId={item.id} />
+      <button
+        onClick={() => {
+          setEditName(item.name);
+          setEditPts(String(item.point_value));
+          setEditDue(item.due_date ?? "");
+          setEditing(true);
+        }}
+        className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
+        title="Edit todo"
+      >
+        ✎
+      </button>
+    </>
+  );
+
+  const completeButton = (
+    <button
+      onClick={() => completeTodo.mutate(item.id)}
+      disabled={completeTodo.isPending}
+      className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-30 disabled:cursor-not-allowed"
+      title="Mark complete"
+    >
+      ✓
+    </button>
+  );
+
   return (
     <div className={`py-2 ${rowBg}`}>
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
-          <span className="text-sm break-words">{item.name}</span>
+          <span className="text-sm wrap-break-word">{item.name}</span>
         </div>
-        <div className="w-24 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-400 pt-0.5">
           {dueLabel ?? "—"}
         </div>
-        <div className="w-20 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-400 pt-0.5">
           {addedDate}
         </div>
-        <div className="w-40 shrink-0 flex items-center justify-end gap-2">
-          <ConvertTodoToTask todoId={item.id} />
-          <button
-            onClick={() => {
-              setEditName(item.name);
-              setEditPts(String(item.point_value));
-              setEditDue(item.due_date ?? "");
-              setEditing(true);
-            }}
-            className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
-            title="Edit todo"
-          >
-            ✎
-          </button>
-          <button
-            onClick={() => completeTodo.mutate(item.id)}
-            disabled={completeTodo.isPending}
-            className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Mark complete"
-          >
-            ✓
-          </button>
+        <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
+          {convertEditActions}
+          {completeButton}
         </div>
-        <span className="w-14 shrink-0 text-right text-sm font-mono pt-0.5">
+        <span className="w-9 sm:w-14 shrink-0 text-right text-sm font-mono pt-0.5">
           {item.point_value}
         </span>
         <span
-          className={`w-14 shrink-0 text-right text-sm font-mono font-bold pt-0.5 ${scoreColor}`}
+          className={`w-10 sm:w-14 shrink-0 text-right text-sm font-mono font-bold pt-0.5 ${scoreColor}`}
         >
           {scoreDisplay}
         </span>
       </div>
-      <EditableComment
-        value={item.comment}
-        onSave={(comment) =>
-          updateTodo.mutate({ id: item.id, data: { comment } })
-        }
-      />
+      <div className="flex sm:hidden items-center justify-between mt-1.5">
+        <div className="flex items-center gap-2">{convertEditActions}</div>
+        {completeButton}
+      </div>
+      <div className="sm:mt-1.5">
+        <EditableComment
+          value={item.comment}
+          onSave={(comment) =>
+            updateTodo.mutate({ id: item.id, data: { comment } })
+          }
+        />
+      </div>
     </div>
   );
 }

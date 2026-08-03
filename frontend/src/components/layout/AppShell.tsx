@@ -8,7 +8,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-screen bg-slate-50">
       <nav className="bg-white border-b border-gray-200 px-4 py-3">
-        <div className="max-w-2xl mx-auto flex items-center justify-between">
+        <div className="max-w-3xl mx-auto flex items-center justify-between">
           <Link to="/" className="text-lg font-bold text-blue-700">
             PRIORI-TRIZE
           </Link>
@@ -52,7 +52,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </div>
         </div>
       </nav>
-      <main className="max-w-2xl mx-auto px-4 py-6">
+      <main className="max-w-3xl mx-auto px-4 py-6">
         {children}
       </main>
     </div>

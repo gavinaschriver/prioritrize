@@ -124,73 +124,98 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
     );
   }
 
+  const convertEditActions = (
+    <>
+      {item.type === "task" && item.project_id && (
+        <ConvertTaskToTodo projectId={item.project_id} taskId={item.id} />
+      )}
+      {item.type === "task" && (
+        <button
+          onClick={() => {
+            setEditName(item.name);
+            setEditPts(
+              item.point_value != null ? String(item.point_value) : "",
+            );
+            setEditDue(item.due_date ?? "");
+            setEditing(true);
+          }}
+          className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
+          title="Edit task"
+        >
+          ✎
+        </button>
+      )}
+    </>
+  );
+
+  const completeButton = (
+    <button
+      onClick={handleComplete}
+      disabled={isPending}
+      className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-30 disabled:cursor-not-allowed"
+      title="Mark complete"
+    >
+      ✓
+    </button>
+  );
+
   return (
     <div className={`py-2 ${rowBg}`}>
-      <div className="flex items-start gap-2">
+      <div className="flex items-start gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
-          <Link
-            to={detailLink}
-            className="text-sm hover:underline text-gray-900 break-words"
-          >
-            {item.name}
-          </Link>
-          {item.type === "task" && item.project_name && (
-            <span className="ml-1 text-xs text-gray-400 break-words">
-              · {item.project_name}
+          {item.type === "project" ? (
+            <Link
+              to={detailLink}
+              className="text-sm hover:underline text-gray-900 wrap-break-word"
+            >
+              {item.name}
+            </Link>
+          ) : (
+            <span className="text-sm text-gray-900 wrap-break-word">
+              {item.name}
             </span>
           )}
+          {item.type === "task" && item.project_name && item.project_id && (
+            <Link
+              to={`/projects/${item.project_id}`}
+              className="block w-fit mt-0.5 sm:mt-1.5 text-xs font-bold uppercase text-gray-600 hover:underline hover:text-blue-500 wrap-break-word"
+            >
+              {item.project_name}
+            </Link>
+          )}
         </div>
-        <div className="w-24 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-400 pt-0.5">
           {dueLabel ?? "—"}
         </div>
-        <div className="w-20 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-400 pt-0.5">
           {addedDate}
         </div>
-        <div className="w-40 shrink-0 flex items-center justify-end gap-2">
-          {item.type === "task" && item.project_id && (
-            <ConvertTaskToTodo projectId={item.project_id} taskId={item.id} />
-          )}
-          {item.type === "task" && (
-            <button
-              onClick={() => {
-                setEditName(item.name);
-                setEditPts(
-                  item.point_value != null ? String(item.point_value) : "",
-                );
-                setEditDue(item.due_date ?? "");
-                setEditing(true);
-              }}
-              className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
-              title="Edit task"
-            >
-              ✎
-            </button>
-          )}
-          <button
-            onClick={handleComplete}
-            disabled={isPending}
-            className="shrink-0 w-8 h-8 flex items-center justify-center bg-green-600 text-white rounded-lg text-sm font-bold hover:bg-green-700 disabled:opacity-30 disabled:cursor-not-allowed"
-            title="Mark complete"
-          >
-            ✓
-          </button>
+        <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
+          {convertEditActions}
+          {completeButton}
         </div>
-        <span className="w-14 shrink-0 text-right text-sm font-mono pt-0.5">
+        <span className="w-9 sm:w-14 shrink-0 text-right text-sm font-mono pt-0.5">
           {item.point_value != null ? item.point_value : "—"}
         </span>
         <span
-          className={`w-14 shrink-0 text-right text-sm font-mono font-bold pt-0.5 ${scoreColor}`}
+          className={`w-10 sm:w-14 shrink-0 text-right text-sm font-mono font-bold pt-0.5 ${scoreColor}`}
         >
           {scoreDisplay}
         </span>
       </div>
+      <div className="flex sm:hidden items-center justify-between mt-1.5">
+        <div className="flex items-center gap-2">{convertEditActions}</div>
+        {completeButton}
+      </div>
       {item.type === "task" && (
-        <EditableComment
-          value={item.comment}
-          onSave={(comment) =>
-            updateTask.mutate({ taskId: item.id, data: { comment } })
-          }
-        />
+        <div className="sm:mt-1.5">
+          <EditableComment
+            value={item.comment}
+            onSave={(comment) =>
+              updateTask.mutate({ taskId: item.id, data: { comment } })
+            }
+          />
+        </div>
       )}
     </div>
   );

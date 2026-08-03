@@ -21,7 +21,7 @@ function CompletedRow({
   removeDisabled,
 }: {
   title: string;
-  kind?: string;
+  kind?: React.ReactNode;
   points?: number;
   comment: string | null;
   onSaveComment?: (comment: string | null) => void;
@@ -81,7 +81,7 @@ function TaskEntry({ item }: { item: DeadlineSummary }) {
   return (
     <CompletedRow
       title={item.name}
-      kind={item.project_name ? `task · ${item.project_name}` : 'task'}
+      kind={item.project_name ? <>task · <span className="font-bold">{item.project_name}</span></> : 'task'}
       points={Number(item.score)}
       comment={item.comment}
       onSaveComment={comment => updateTask.mutate({ taskId: item.id, data: { comment } })}
