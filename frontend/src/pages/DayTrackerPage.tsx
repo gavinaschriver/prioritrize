@@ -13,13 +13,24 @@ import { CompletedToday } from "../components/day-tracker/CompletedToday";
 import { SpendingInput } from "../components/day-tracker/SpendingInput";
 import { SpendingLog } from "../components/day-tracker/SpendingLog";
 import { CombinedQueueSection } from "../components/day-tracker/CombinedQueueSection";
-import { ScratchPad } from "../components/day-tracker/ScratchPad";
 import { DailyNotes } from "../components/day-tracker/DailyNotes";
+
+type SectionKey = "queue" | "deadlines" | "todos" | "goals" | "bonuses";
 
 export function DayTrackerPage() {
   const [selectedDate, setSelectedDate] = useState(getTodayStr());
   const [hybridView, setHybridView] = useState(
     () => localStorage.getItem("hybridView") === "true",
+  );
+  // Collapse state lives here so Expand All can drive every section at once.
+  const [openSections, setOpenSections] = useState<Record<SectionKey, boolean>>(
+    {
+      queue: true,
+      deadlines: false,
+      todos: false,
+      goals: false,
+      bonuses: false,
+    },
   );
   const { data: summary, isLoading, error } = useDaySummary(selectedDate);
 
@@ -31,6 +42,21 @@ export function DayTrackerPage() {
       return !prev;
     });
   };
+
+  const toggleSection = (key: SectionKey) =>
+    setOpenSections((prev) => ({ ...prev, [key]: !prev[key] }));
+
+  // Only the sections actually on screen count — the hybrid toggle hides the others.
+  const visibleSections: SectionKey[] = hybridView
+    ? ["queue", "goals", "bonuses"]
+    : ["deadlines", "todos", "goals", "bonuses"];
+  const allOpen = visibleSections.every((key) => openSections[key]);
+
+  const toggleAll = () =>
+    setOpenSections((prev) => ({
+      ...prev,
+      ...Object.fromEntries(visibleSections.map((key) => [key, !allOpen])),
+    }));
 
   const goToYesterday = () => {
     const d = new Date(getTodayStr() + "T12:00:00");
@@ -59,7 +85,14 @@ export function DayTrackerPage() {
 
       {summary && (
         <>
-          <div className="flex justify-end mb-2">
+          <div className="flex justify-end gap-2 mb-2">
+            <button
+              onClick={toggleAll}
+              className="text-xs px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+              title={allOpen ? "Collapse every section" : "Open every section"}
+            >
+              {allOpen ? "Hide All" : "Expand All"}
+            </button>
             <button
               onClick={toggleHybrid}
               className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
@@ -78,25 +111,38 @@ export function DayTrackerPage() {
               todos={summary.todos}
               deadlines={summary.deadlines}
               viewedDate={selectedDate}
+              open={openSections.queue}
+              onToggle={() => toggleSection("queue")}
             />
           ) : (
             <>
               <DeadlinesSection
                 deadlines={summary.deadlines}
                 viewedDate={selectedDate}
+                open={openSections.deadlines}
+                onToggle={() => toggleSection("deadlines")}
               />
-              <TodosSection todos={summary.todos} viewedDate={selectedDate} />
+              <TodosSection
+                todos={summary.todos}
+                viewedDate={selectedDate}
+                open={openSections.todos}
+                onToggle={() => toggleSection("todos")}
+              />
             </>
           )}
           <GoalsSection
             goals={summary.goals}
             subtotal={Number(summary.goals_subtotal)}
             selectedDate={selectedDate}
+            open={openSections.goals}
+            onToggle={() => toggleSection("goals")}
           />
           <BonusesSection
             bonuses={summary.bonuses}
             subtotal={Number(summary.bonuses_subtotal)}
             selectedDate={selectedDate}
+            open={openSections.bonuses}
+            onToggle={() => toggleSection("bonuses")}
           />
           <SpendingInput selectedDate={selectedDate} />
           <CompletedToday summary={summary} />

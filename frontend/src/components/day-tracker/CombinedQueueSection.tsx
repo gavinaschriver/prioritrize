@@ -15,11 +15,12 @@ interface CombinedQueueSectionProps {
   todos: TodoSummary[];
   deadlines: DeadlineSummary[];
   viewedDate: string;
+  open: boolean;
+  onToggle: () => void;
 }
 
 /** Everything actionable that isn't a daily — todos and project tasks in one list. */
-export function CombinedQueueSection({ todos, deadlines, viewedDate }: CombinedQueueSectionProps) {
-  const [open, setOpen] = useState(true);
+export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onToggle }: CombinedQueueSectionProps) {
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
 
   const pending: QueueItem[] = [
@@ -64,24 +65,13 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate }: CombinedQ
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setOpen(o => !o)}
-            className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
-          >
-            <span>{open ? '▾' : '▸'}</span>
-            <span>Tasks and Todos</span>
-          </button>
-          {(['point_value', 'created_at', 'due_date'] as SortField[]).map(field => (
-            <button
-              key={field}
-              onClick={() => toggleSort(field)}
-              className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
-            >
-              {field === 'point_value' ? 'pts' : field === 'created_at' ? 'added' : 'due'} {sortIcon(field)}
-            </button>
-          ))}
-        </div>
+        <button
+          onClick={onToggle}
+          className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
+        >
+          <span>{open ? '▾' : '▸'}</span>
+          <span>Tasks and Todos</span>
+        </button>
         {!open && (
           <span className={`text-sm font-bold font-mono ${subtotalColor}`}>{formatScore(subtotal)}</span>
         )}
@@ -89,9 +79,27 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate }: CombinedQ
       {open && (
         <>
           <div className="flex items-center gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
-            <div className="flex-1">Name</div>
-            <div className="w-12 text-right">Pts</div>
-            <div className="w-14 text-right">Score</div>
+            <div className="flex-1 min-w-0">Name</div>
+            <button
+              onClick={() => toggleSort('due_date')}
+              className={`w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === 'due_date' ? 'text-blue-600' : ''}`}
+            >
+              Due {sortIcon('due_date')}
+            </button>
+            <button
+              onClick={() => toggleSort('created_at')}
+              className={`w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === 'created_at' ? 'text-blue-600' : ''}`}
+            >
+              Added {sortIcon('created_at')}
+            </button>
+            <div className="w-40 shrink-0"></div>
+            <button
+              onClick={() => toggleSort('point_value')}
+              className={`w-14 shrink-0 text-right hover:text-gray-700 ${sort.field === 'point_value' ? 'text-blue-600' : ''}`}
+            >
+              Pts {sortIcon('point_value')}
+            </button>
+            <div className="w-14 text-right shrink-0">Score</div>
           </div>
 
           {pending.length === 0 && (

@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { PrioritryRow } from "./PrioritryRow";
 import { SectionSubtotal, formatScore } from "./SectionSubtotal";
 import type { DayPrioritrySummary } from "../../types";
@@ -7,21 +6,24 @@ interface GoalsSectionProps {
   goals: DayPrioritrySummary[];
   subtotal: number;
   selectedDate: string;
+  open: boolean;
+  onToggle: () => void;
 }
 
 export function GoalsSection({
   goals,
   subtotal,
   selectedDate,
+  open,
+  onToggle,
 }: GoalsSectionProps) {
-  const [open, setOpen] = useState(false);
   const subtotalColor = subtotal >= 0 ? "text-green-600" : "text-red-600";
 
   return (
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setOpen((o) => !o)}
+          onClick={onToggle}
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
           <span>{open ? "▾" : "▸"}</span>

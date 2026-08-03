@@ -9,10 +9,11 @@ type SortDir = "asc" | "desc";
 interface TodosSectionProps {
   todos: TodoSummary[];
   viewedDate: string;
+  open: boolean;
+  onToggle: () => void;
 }
 
-export function TodosSection({ todos, viewedDate }: TodosSectionProps) {
-  const [open, setOpen] = useState(false);
+export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSectionProps) {
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({
     field: "due_date",
     dir: "asc",
@@ -53,7 +54,7 @@ export function TodosSection({ todos, viewedDate }: TodosSectionProps) {
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setOpen((o) => !o)}
+          onClick={onToggle}
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
           <span>{open ? "▾" : "▸"}</span>

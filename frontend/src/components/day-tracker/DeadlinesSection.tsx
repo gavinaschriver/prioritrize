@@ -11,13 +11,16 @@ type SortDir = "asc" | "desc";
 interface DeadlinesSectionProps {
   deadlines: DeadlineSummary[];
   viewedDate: string;
+  open: boolean;
+  onToggle: () => void;
 }
 
 export function DeadlinesSection({
   deadlines,
   viewedDate,
+  open,
+  onToggle,
 }: DeadlinesSectionProps) {
-  const [open, setOpen] = useState(false);
   const [showAll, setShowAll] = useState(false);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({
     field: "due_date",
@@ -62,7 +65,7 @@ export function DeadlinesSection({
     <div className="mb-6">
       <div className="flex items-center justify-between mb-2">
         <button
-          onClick={() => setOpen((o) => !o)}
+          onClick={onToggle}
           className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
         >
           <span>{open ? "▾" : "▸"}</span>
