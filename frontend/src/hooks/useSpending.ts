@@ -22,6 +22,7 @@ export function useCreateSpend() {
       api.post(`/api/spending?tz=${encodeURIComponent(tz)}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['spending'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 }
@@ -36,6 +37,7 @@ export function useUpdateSpend() {
     }) => api.patch(`/api/spending/${spendId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['spending'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 }

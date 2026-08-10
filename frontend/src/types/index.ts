@@ -166,6 +166,12 @@ export interface TagStats {
   count: number;
 }
 
+/** Same shape as TagStats, but unscoped by date — feeds tag autocomplete. */
+export interface TagSuggestion {
+  tag: string;
+  count: number;
+}
+
 export interface DashboardData {
   start: string;
   end: string;

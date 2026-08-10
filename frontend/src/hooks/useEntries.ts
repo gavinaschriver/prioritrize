@@ -11,6 +11,7 @@ export function useCreateEntry() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
       queryClient.invalidateQueries({ queryKey: ['balance'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 }
@@ -23,6 +24,7 @@ export function useUpdateEntryComment() {
       api.patch(`/api/entries/${entryId}`, { comment }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['tags'] });
     },
   });
 }
