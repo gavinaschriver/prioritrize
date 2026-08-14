@@ -58,7 +58,7 @@ async def list_prioritries(include_inactive: bool = False) -> str:
             """
             SELECT p.name, t.name AS type_name, p.point_value, p.timeblock,
                    p.can_repeat, p.is_active,
-                   (SELECT count(*) FROM entry e WHERE e.prioritry_id = p.id)
+                   (SELECT coalesce(sum(e.quantity), 0) FROM entry e WHERE e.prioritry_id = p.id)
                        AS lifetime_entries
             FROM prioritry p
             JOIN type t ON t.id = p.type_id
@@ -101,7 +101,7 @@ async def time_spent(start: str, end: str, tz: str, limit: int = 30) -> str:
         rows = await conn.fetch(
             f"""
             SELECT p.name, t.name AS type_name, p.timeblock,
-                   count(e.id) AS entries,
+                   sum(e.quantity) AS entries,
                    count(DISTINCT {db.local_day('e.created_at', 4)}) AS days
             FROM prioritry p
             JOIN type t ON t.id = p.type_id
@@ -112,7 +112,7 @@ async def time_spent(start: str, end: str, tz: str, limit: int = 30) -> str:
              AND e.created_at < $3
             WHERE p.user_id = $1
             GROUP BY p.name, t.name, p.timeblock
-            ORDER BY count(e.id) DESC
+            ORDER BY sum(e.quantity) DESC
             """,
             uid, lo, hi, tz,
         )
@@ -262,9 +262,9 @@ async def tag_breakdown(start: str, end: str, tz: str) -> str:
         rows = await conn.fetch(
             f"""
             SELECT et.tag,
-                   count(*) AS uses,
+                   sum(e.quantity) AS uses,
                    count(DISTINCT {db.local_day('e.created_at', 4)}) AS days,
-                   sum(p.timeblock) AS minutes,
+                   sum(p.timeblock * e.quantity) AS minutes,
                    count(DISTINCT p.id) AS prioritries
             FROM entry_tag et
             JOIN entry e ON e.id = et.entry_id
@@ -273,7 +273,7 @@ async def tag_breakdown(start: str, end: str, tz: str) -> str:
               AND e.created_at >= $2
               AND e.created_at < $3
             GROUP BY et.tag
-            ORDER BY count(*) DESC, et.tag
+            ORDER BY sum(e.quantity) DESC, et.tag
             """,
             uid, lo, hi, tz,
         )
@@ -307,17 +307,18 @@ async def timeline(start: str, end: str, tz: str, bucket: str = "day") -> str:
             f"""
             WITH e AS (
                 SELECT {db.local_day('entry.created_at', 4)} AS day,
-                       prioritry_id
+                       prioritry_id,
+                       quantity
                 FROM entry
                 WHERE user_id = $1
                   AND created_at >= $2
                   AND created_at < $3
             )
             SELECT date_trunc($5, e.day::timestamp)::date AS bucket,
-                   count(*) AS entries,
+                   sum(e.quantity) AS entries,
                    count(DISTINCT e.day) AS active_days,
                    count(DISTINCT e.prioritry_id) AS prioritries,
-                   sum(p.timeblock) AS minutes
+                   sum(p.timeblock * e.quantity) AS minutes
             FROM e
             JOIN prioritry p ON p.id = e.prioritry_id
             GROUP BY 1
@@ -364,7 +365,7 @@ async def day_detail(day: str, tz: str) -> str:
         entries = await conn.fetch(
             """
             SELECT p.name, t.name AS type_name, p.timeblock, p.point_value,
-                   e.comment, e.created_at
+                   e.comment, e.created_at, e.quantity
             FROM entry e
             JOIN prioritry p ON p.id = e.prioritry_id
             JOIN type t ON t.id = p.type_id
@@ -398,7 +399,13 @@ async def day_detail(day: str, tz: str) -> str:
         [
             [
                 e["created_at"].astimezone(zone).strftime("%H:%M"),
-                e["name"], e["type_name"], fmt_minutes(e["timeblock"]),
+                e["name"], e["type_name"],
+                # A single entry can carry several blocks — show the multiplier.
+                (
+                    f"{e['quantity']} x {fmt_minutes(e['timeblock'])}"
+                    if e["quantity"] > 1 and e["timeblock"] is not None
+                    else fmt_minutes(e["timeblock"])
+                ),
                 (e["comment"] or "")[:80],
             ]
             for e in entries
@@ -412,11 +419,12 @@ async def day_detail(day: str, tz: str) -> str:
             for t in todos
         ],
     )
-    minutes = sum(e["timeblock"] or 0 for e in entries)
+    minutes = sum((e["timeblock"] or 0) * e["quantity"] for e in entries)
+    units = sum(e["quantity"] for e in entries)
     parts = [
         f"{day} ({tz})",
         f"score: {score if score is not None else 'not finalised'}   "
-        f"entries: {len(entries)}   tracked time: {fmt_minutes(minutes)}",
+        f"entries: {units}   tracked time: {fmt_minutes(minutes)}",
         "\nEntries:\n" + entry_tbl,
         "\nTodos completed:\n" + todo_tbl,
     ]
@@ -501,7 +509,10 @@ async def describe_schema() -> str:
         "Notes:\n"
         "  entry.created_at is timestamptz in UTC. Bucket by local day with\n"
         "    (created_at AT TIME ZONE 'America/Chicago')::date\n"
-        "  prioritry.timeblock is minutes per entry, and is NULL for most rows.\n"
+        "  prioritry.timeblock is minutes per BLOCK, and is NULL for most rows.\n"
+        "  entry.quantity is how many blocks one entry row represents (default 1).\n"
+        "    Count units with sum(e.quantity), never count(*), and compute time as\n"
+        "    sum(p.timeblock * e.quantity) -- a bare count undercounts multi-block entries.\n"
         "  type.name is 'Goal' or 'Bonus'.\n"
         "  Every user-owned table has a user_id column."
     )

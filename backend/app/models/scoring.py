@@ -8,6 +8,7 @@ class EntryBrief(BaseModel):
     id: UUID
     comment: str | None
     created_at: datetime
+    quantity: int = 1  # how many timeblocks this single entry represents
 
 
 class DayPrioritrySummary(BaseModel):

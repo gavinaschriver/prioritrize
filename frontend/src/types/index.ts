@@ -35,6 +35,8 @@ export interface EntryBrief {
   id: string;
   comment: string | null;
   created_at: string;
+  /** How many timeblocks this single entry represents. */
+  quantity: number;
 }
 
 export interface DayPrioritrySummary {

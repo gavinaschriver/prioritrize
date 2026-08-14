@@ -11,9 +11,12 @@ interface PrioritryRowProps {
 
 export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps) {
   const [comment, setComment] = useState('');
+  const [blocks, setBlocks] = useState(1);
   const createEntry = useCreateEntry();
 
   const canAdd = item.can_repeat || item.entry_count === 0;
+  // A stepper only makes sense where a unit is a span of time you can repeat.
+  const isSteppable = item.timeblock !== null && item.can_repeat;
   const totalValue = Number(item.total_value);
   const totalColor = totalValue > 0 ? 'text-green-600' : totalValue < 0 ? 'text-red-600' : 'text-gray-500';
 
@@ -22,8 +25,10 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
       prioritry_id: item.prioritry_id,
       comment: item.comments_enabled && comment.trim() ? comment.trim() : undefined,
       target_date: selectedDate,
+      ...(isSteppable && blocks > 1 ? { quantity: blocks } : {}),
     });
     setComment('');
+    setBlocks(1);
   };
 
   const formatName = () => {
@@ -51,13 +56,44 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
         <div className="flex-1 min-w-0">
           <span className="text-sm">{formatName()}</span>
         </div>
-        <button
-          onClick={handleAdd}
-          disabled={!canAdd || createEntry.isPending}
-          className="shrink-0 w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-lg font-bold hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed"
-        >
-          +
-        </button>
+        {isSteppable ? (
+          <div className="shrink-0 w-32 flex items-center justify-end gap-1">
+            <button
+              onClick={() => setBlocks(b => Math.max(1, b - 1))}
+              disabled={blocks <= 1}
+              title="One fewer block"
+              className="w-6 h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              −
+            </button>
+            <span className="w-5 text-center text-sm font-mono font-bold">{blocks}</span>
+            <button
+              onClick={() => setBlocks(b => b + 1)}
+              title="One more block"
+              className="w-6 h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50"
+            >
+              +
+            </button>
+            <button
+              onClick={handleAdd}
+              disabled={!canAdd || createEntry.isPending}
+              className="ml-1 h-7 px-2 flex items-center justify-center bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              Log
+            </button>
+          </div>
+        ) : (
+          // Same w-32 slot so steppable and plain rows keep their columns aligned.
+          <div className="shrink-0 w-32 flex items-center justify-end">
+            <button
+              onClick={handleAdd}
+              disabled={!canAdd || createEntry.isPending}
+              className="w-8 h-8 flex items-center justify-center bg-blue-600 text-white rounded-lg text-lg font-bold hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed"
+            >
+              +
+            </button>
+          </div>
+        )}
         <span className="w-12 text-right text-sm font-mono">{item.point_value}</span>
         <span className="w-10 text-center text-sm font-mono">{item.entry_count}</span>
         <span className={`w-14 text-right text-sm font-mono font-bold ${totalColor}`}>

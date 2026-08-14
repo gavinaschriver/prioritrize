@@ -56,7 +56,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     )
     entries = await conn.fetch(
         """
-        SELECT e.id, e.prioritry_id, e.comment, e.created_at
+        SELECT e.id, e.prioritry_id, e.comment, e.created_at, e.quantity
         FROM entry e
         WHERE e.user_id = $1
           AND e.created_at >= $2
@@ -75,7 +75,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     for row in rows:
         pid = str(row["prioritry_id"])
         pri_entries = entries_by_prioritry.get(pid, [])
-        entry_count = len(pri_entries)
+        # Units, not rows — one entry can carry several timeblocks.
+        entry_count = sum(e["quantity"] for e in pri_entries)
         if row["type_name"] == "Goal":
             total_value = Decimal(row["point_value"]) * entry_count if entry_count > 0 else -Decimal(row["point_value"])
         else:
@@ -90,7 +91,10 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             timeblock=row["timeblock"],
             entry_count=entry_count,
             total_value=total_value,
-            entries=[EntryBrief(id=e["id"], comment=e["comment"], created_at=e["created_at"]) for e in pri_entries],
+            entries=[
+                EntryBrief(id=e["id"], comment=e["comment"], created_at=e["created_at"], quantity=e["quantity"])
+                for e in pri_entries
+            ],
         )
         if row["type_name"] == "Goal":
             goals.append(summary)

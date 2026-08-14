@@ -27,7 +27,7 @@ async def get_dashboard(
             p.name,
             t.name AS type_name,
             p.timeblock,
-            COUNT(e.id) AS entry_count
+            COALESCE(SUM(e.quantity), 0) AS entry_count
         FROM prioritry p
         JOIN type t ON t.id = p.type_id
         LEFT JOIN entry e

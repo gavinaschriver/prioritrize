@@ -1,4 +1,4 @@
-import { useDeleteEntry, useUpdateEntryComment } from '../../hooks/useEntries';
+import { useDeleteEntry, useUpdateEntryComment, useDecrementEntry, useIncrementEntry } from '../../hooks/useEntries';
 import { useUncompleteTodo, useUpdateTodo } from '../../hooks/useTodos';
 import { useUncompleteProjectTask, useUpdateProjectTask, useUncompleteProject } from '../../hooks/useProjects';
 import { EditableComment } from './EditableComment';
@@ -17,6 +17,8 @@ function CompletedRow({
   comment,
   onSaveComment,
   onRemove,
+  onDecrement,
+  onIncrement,
   removeLabel = 'Remove',
   removeDisabled,
 }: {
@@ -26,6 +28,8 @@ function CompletedRow({
   comment: string | null;
   onSaveComment?: (comment: string | null) => void;
   onRemove: () => void;
+  onDecrement?: () => void;
+  onIncrement?: () => void;
   removeLabel?: string;
   removeDisabled?: boolean;
 }) {
@@ -46,6 +50,26 @@ function CompletedRow({
         <span className="shrink-0 ml-2 text-sm font-mono font-bold text-green-600">
           {points > 0 ? `+${points}` : points}
         </span>
+      )}
+      {onDecrement && (
+        <button
+          onClick={onDecrement}
+          disabled={removeDisabled}
+          title="Remove one block"
+          className="shrink-0 ml-2 text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50"
+        >
+          −1
+        </button>
+      )}
+      {onIncrement && (
+        <button
+          onClick={onIncrement}
+          disabled={removeDisabled}
+          title="Add one more block"
+          className="shrink-0 ml-2 text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50"
+        >
+          +1
+        </button>
       )}
       <button
         onClick={onRemove}
@@ -107,14 +131,16 @@ function ProjectEntry({ item }: { item: DeadlineSummary }) {
 
 export function CompletedToday({ summary }: CompletedTodayProps) {
   const deleteEntry = useDeleteEntry();
+  const decrementEntry = useDecrementEntry();
+  const incrementEntry = useIncrementEntry();
   const updateComment = useUpdateEntryComment();
 
   const dailyEntries = [
     ...summary.goals.flatMap(g =>
-      g.entries.map(e => ({ ...e, prioritryName: g.name, timeblock: g.timeblock, commentsEnabled: g.comments_enabled, points: Number(g.point_value) }))
+      g.entries.map(e => ({ ...e, prioritryName: g.name, timeblock: g.timeblock, canRepeat: g.can_repeat, commentsEnabled: g.comments_enabled, points: Number(g.point_value) }))
     ),
     ...summary.bonuses.flatMap(b =>
-      b.entries.map(e => ({ ...e, prioritryName: b.name, timeblock: b.timeblock, commentsEnabled: b.comments_enabled, points: Number(b.point_value) }))
+      b.entries.map(e => ({ ...e, prioritryName: b.name, timeblock: b.timeblock, canRepeat: b.can_repeat, commentsEnabled: b.comments_enabled, points: Number(b.point_value) }))
     ),
   ].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
 
@@ -127,18 +153,28 @@ export function CompletedToday({ summary }: CompletedTodayProps) {
   const total =
     completedTodos.reduce((sum, t) => sum + Number(t.score), 0) +
     completedDeadlines.reduce((sum, d) => sum + Number(d.score), 0) +
-    dailyEntries.reduce((sum, e) => sum + e.points, 0);
+    dailyEntries.reduce((sum, e) => sum + e.points * e.quantity, 0);
 
   const isEmpty = dailyEntries.length === 0 && completedTodos.length === 0 && completedDeadlines.length === 0;
   if (isEmpty) return null;
 
-  const formatName = (name: string, timeblock: number | null) => {
+  const formatName = (name: string, timeblock: number | null, quantity: number) => {
     if (timeblock) {
       const hours = Math.floor(timeblock / 60);
       const mins = timeblock % 60;
       const timeStr = hours > 0
         ? (mins > 0 ? `${hours} hr ${mins} min` : `${hours} hour`)
         : `${mins} min`;
+      // One entry can carry several blocks — show the multiplier and the span it adds up to.
+      if (quantity > 1) {
+        const totalMins = timeblock * quantity;
+        const tHours = Math.floor(totalMins / 60);
+        const tMins = totalMins % 60;
+        const totalStr = tHours > 0
+          ? (tMins > 0 ? `${tHours} hr ${tMins} min` : `${tHours} hr`)
+          : `${tMins} min`;
+        return `${name} ${quantity} × ${timeStr} (${totalStr})`;
+      }
       return `${name} ${timeStr}`;
     }
     return name;
@@ -164,9 +200,9 @@ export function CompletedToday({ summary }: CompletedTodayProps) {
         {dailyEntries.map(entry => (
           <CompletedRow
             key={entry.id}
-            title={formatName(entry.prioritryName, entry.timeblock)}
+            title={formatName(entry.prioritryName, entry.timeblock, entry.quantity)}
             kind="daily"
-            points={entry.points}
+            points={entry.points * entry.quantity}
             comment={entry.comment}
             onSaveComment={
               entry.commentsEnabled
@@ -174,7 +210,18 @@ export function CompletedToday({ summary }: CompletedTodayProps) {
                 : undefined
             }
             onRemove={() => deleteEntry.mutate(entry.id)}
-            removeDisabled={deleteEntry.isPending}
+            onDecrement={
+              entry.quantity > 1 ? () => decrementEntry.mutate(entry.id) : undefined
+            }
+            // Same rule as the row stepper: blocks only stack on repeatable timed items.
+            onIncrement={
+              entry.timeblock !== null && entry.canRepeat
+                ? () => incrementEntry.mutate(entry.id)
+                : undefined
+            }
+            removeDisabled={
+              deleteEntry.isPending || decrementEntry.isPending || incrementEntry.isPending
+            }
           />
         ))}
       </div>

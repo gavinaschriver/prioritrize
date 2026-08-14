@@ -60,6 +60,10 @@ async def create_entry(
     start_utc, end_utc = get_day_boundaries_utc(target_date, tz_str)
 
     if not prioritry["can_repeat"]:
+        # The row check below can't see quantity, so a single multi-block insert
+        # would sneak past it. Reject that up front.
+        if data.quantity > 1:
+            raise HTTPException(400, "Cannot log multiple blocks; can_repeat is false")
         existing_count = await conn.fetchval(
             """
             SELECT COUNT(*) FROM entry
@@ -78,22 +82,22 @@ async def create_entry(
         )
         row = await conn.fetchrow(
             """
-            INSERT INTO entry (prioritry_id, user_id, comment, created_at)
-            VALUES ($1, $2, $3, $4)
+            INSERT INTO entry (prioritry_id, user_id, comment, created_at, quantity)
+            VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             """,
-            pri_id, uid, data.comment, created_at,
+            pri_id, uid, data.comment, created_at, data.quantity,
         )
         await _sync_tags(row["id"], uid, data.comment, conn)
         await upsert_snapshot(user_id, data.target_date, tz_str, conn)
     else:
         row = await conn.fetchrow(
             """
-            INSERT INTO entry (prioritry_id, user_id, comment)
-            VALUES ($1, $2, $3)
+            INSERT INTO entry (prioritry_id, user_id, comment, quantity)
+            VALUES ($1, $2, $3, $4)
             RETURNING *
             """,
-            pri_id, uid, data.comment,
+            pri_id, uid, data.comment, data.quantity,
         )
         await _sync_tags(row["id"], uid, data.comment, conn)
 
@@ -144,6 +148,72 @@ async def delete_entry(
         await upsert_snapshot(user_id, entry_date, tz_str, conn)
 
     return {"deleted": True}
+
+
+async def increment_entry(
+    user_id: str, entry_id: UUID, tz_str: str, conn: asyncpg.Connection
+) -> dict:
+    """Add one more timeblock to an entry already logged today."""
+    uid = to_uuid(user_id)
+    entry = await conn.fetchrow(
+        "SELECT * FROM entry WHERE id = $1 AND user_id = $2", entry_id, uid
+    )
+    if not entry:
+        raise HTTPException(404, "Entry not found")
+
+    can_repeat = await conn.fetchval(
+        "SELECT can_repeat FROM prioritry WHERE id = $1", entry["prioritry_id"]
+    )
+    if not can_repeat:
+        raise HTTPException(400, "Cannot add a block; can_repeat is false")
+
+    row = await conn.fetchrow(
+        """
+        UPDATE entry SET quantity = quantity + 1
+        WHERE id = $1 AND user_id = $2
+        RETURNING *
+        """,
+        entry_id, uid,
+    )
+
+    today_str = get_today_str(tz_str)
+    start_utc, _ = get_day_boundaries_utc(today_str, tz_str)
+    if row["created_at"] < start_utc:
+        tz = ZoneInfo(tz_str)
+        entry_date = row["created_at"].astimezone(tz).strftime("%Y-%m-%d")
+        await upsert_snapshot(user_id, entry_date, tz_str, conn)
+
+    return {"quantity": row["quantity"]}
+
+
+async def decrement_entry(
+    user_id: str, entry_id: UUID, tz_str: str, conn: asyncpg.Connection
+) -> dict:
+    """Drop one timeblock off an entry. The last block deletes the row outright,
+    which routes through delete_entry so snapshot and tag cleanup stay in one place.
+    """
+    uid = to_uuid(user_id)
+    row = await conn.fetchrow(
+        """
+        UPDATE entry SET quantity = quantity - 1
+        WHERE id = $1 AND user_id = $2 AND quantity > 1
+        RETURNING *
+        """,
+        entry_id, uid,
+    )
+    if row:
+        # The day's cached score is stale now if this entry sits in the past.
+        today_str = get_today_str(tz_str)
+        start_utc, _ = get_day_boundaries_utc(today_str, tz_str)
+        if row["created_at"] < start_utc:
+            tz = ZoneInfo(tz_str)
+            entry_date = row["created_at"].astimezone(tz).strftime("%Y-%m-%d")
+            await upsert_snapshot(user_id, entry_date, tz_str, conn)
+        return {"deleted": False, "quantity": row["quantity"]}
+
+    # quantity was already 1 (or the entry isn't ours — delete_entry 404s on that).
+    await delete_entry(user_id, entry_id, tz_str, conn)
+    return {"deleted": True, "quantity": 0}
 
 
 async def list_entries_for_day(

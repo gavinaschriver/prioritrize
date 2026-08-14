@@ -6,8 +6,12 @@ export function useCreateEntry() {
   const tz = getUserTimezone();
 
   return useMutation({
-    mutationFn: (data: { prioritry_id: string; comment?: string | null; target_date?: string }) =>
-      api.post(`/api/entries?tz=${encodeURIComponent(tz)}`, data),
+    mutationFn: (data: {
+      prioritry_id: string;
+      comment?: string | null;
+      target_date?: string;
+      quantity?: number;
+    }) => api.post(`/api/entries?tz=${encodeURIComponent(tz)}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
       queryClient.invalidateQueries({ queryKey: ['balance'] });
@@ -25,6 +29,36 @@ export function useUpdateEntryComment() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
       queryClient.invalidateQueries({ queryKey: ['tags'] });
+    },
+  });
+}
+
+/** Adds one more timeblock to an entry already logged. */
+export function useIncrementEntry() {
+  const queryClient = useQueryClient();
+  const tz = getUserTimezone();
+
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      api.post(`/api/entries/${entryId}/increment?tz=${encodeURIComponent(tz)}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
+    },
+  });
+}
+
+/** Drops one timeblock; the server deletes the entry when the last one goes. */
+export function useDecrementEntry() {
+  const queryClient = useQueryClient();
+  const tz = getUserTimezone();
+
+  return useMutation({
+    mutationFn: (entryId: string) =>
+      api.post(`/api/entries/${entryId}/decrement?tz=${encodeURIComponent(tz)}`, {}),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }

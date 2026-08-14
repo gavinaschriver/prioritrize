@@ -35,9 +35,10 @@ async def list_prioritries(include_inactive: bool = False) -> str:
     """List every tracked habit/goal ("prioritry") with its configuration.
 
     Start here when you don't know what the user tracks. Shows type (Goal vs
-    Bonus), point value, whether it repeats, and its timeblock -- the minutes a
-    single entry represents. Prioritries with no timeblock cannot be measured
-    in time, only in entry counts.
+    Bonus), point value, whether it repeats, and its timeblock -- the minutes one
+    block represents. An entry can log several blocks at once, so lifetime_entries
+    counts blocks, not rows. Prioritries with no timeblock cannot be measured in
+    time, only in entry counts.
     """
     return await queries.list_prioritries(include_inactive)
 
@@ -52,8 +53,9 @@ async def time_spent(
 ) -> str:
     """Rank prioritries by time spent over a date range.
 
-    Answers "what did I spend the most time on?". Time is entry count times
-    the prioritry's timeblock. Only some prioritries have a timeblock, so the
+    Answers "what did I spend the most time on?". Time is block count (summed
+    entry.quantity) times the prioritry's timeblock. Only some prioritries have
+    a timeblock, so the
     total is a floor, not a complete accounting -- the ones without are listed
     separately with their entry counts so nothing is silently dropped.
     """

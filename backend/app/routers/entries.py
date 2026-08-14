@@ -39,6 +39,26 @@ async def delete_entry(
     return await entry_service.delete_entry(user["id"], entry_id, tz, conn)
 
 
+@router.post("/{entry_id}/increment")
+async def increment_entry(
+    entry_id: UUID,
+    tz: str = Query(..., description="User timezone"),
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await entry_service.increment_entry(user["id"], entry_id, tz, conn)
+
+
+@router.post("/{entry_id}/decrement")
+async def decrement_entry(
+    entry_id: UUID,
+    tz: str = Query(..., description="User timezone"),
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await entry_service.decrement_entry(user["id"], entry_id, tz, conn)
+
+
 @router.get("", response_model=list[EntryOut])
 async def list_entries(
     date: str = Query(..., description="Date YYYY-MM-DD"),
