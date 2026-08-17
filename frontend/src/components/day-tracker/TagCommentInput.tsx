@@ -60,6 +60,18 @@ export function TagCommentInput({
   const [highlight, setHighlight] = useState(0);
   const [dismissed, setDismissed] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [caret, setCaret] = useState(0);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const pendingCaret = useRef<number | null>(null);
+
+  // Committing a pill rewrites the field, so put the cursor back where the user
+  // was typing instead of letting the browser drop it at the end.
+  useEffect(() => {
+    if (pendingCaret.current !== null && inputRef.current) {
+      inputRef.current.setSelectionRange(pendingCaret.current, pendingCaret.current);
+      pendingCaret.current = null;
+    }
+  }, [inputValue]);
 
   useEffect(() => {
     if (value !== lastExternal.current) {
@@ -70,9 +82,14 @@ export function TagCommentInput({
     }
   }, [value]);
 
-  // Only the segment currently being typed can be a tag, and only once it opens with '#'.
-  const query = inputValue.startsWith('#')
-    ? inputValue.slice(1).trim().toLowerCase()
+  // The tag being typed runs from a leading '#' to the caret — anything past the
+  // caret is body text the user is typing in front of, not part of the tag.
+  // (Editing an existing comment puts that body text in the field from the start.)
+  const pending = inputValue.startsWith('#') && caret > 0
+    ? inputValue.slice(1, caret)
+    : null;
+  const query = pending !== null && !pending.includes(',')
+    ? pending.trim().toLowerCase()
     : null;
 
   const matches = useMemo(() => {
@@ -102,24 +119,33 @@ export function TagCommentInput({
     onChange(serialized);
   };
 
-  const commitTag = (tag: string) => {
+  /** Turn the text up to `consumed` into a pill, keeping whatever follows it. */
+  const commitTag = (tag: string, source: string, consumed: number) => {
     const newTags = [...tags, tag];
+    const rest = source.slice(consumed).replace(/^,\s*/, '');
     setTags(newTags);
-    setInputValue('');
-    emit(newTags, '');
+    setInputValue(rest);
+    emit(newTags, rest);
     setHighlight(0);
     setDismissed(false);
+    // The pill left the field, so the remaining text now starts at 0.
+    setCaret(0);
+    pendingCaret.current = 0;
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
+    const pos = e.target.selectionStart ?? val.length;
     setHighlight(0);
     setDismissed(false);
-    // Form a tag when the user types ", " after a #word(s) segment
-    if (val.startsWith('#') && val.endsWith(', ')) {
-      const tagName = val.slice(1, -2).trim();
-      if (tagName) {
-        commitTag(tagName);
+    setCaret(pos);
+    // Form a tag when the user types ", " after a #word(s) segment. Only the text
+    // before the caret counts, so this fires while typing in front of body text too.
+    const before = val.slice(0, pos);
+    if (before.startsWith('#') && before.endsWith(', ')) {
+      const tagName = before.slice(1, -2).trim();
+      if (tagName && !tagName.includes(',')) {
+        commitTag(tagName, val, pos);
         return;
       }
     }
@@ -142,7 +168,7 @@ export function TagCommentInput({
       }
       if (e.key === 'Enter' || e.key === 'Tab') {
         e.preventDefault();
-        commitTag(matches[activeIndex].tag);
+        commitTag(matches[activeIndex].tag, inputValue, caret);
         return;
       }
       if (e.key === 'Escape') {
@@ -184,6 +210,9 @@ export function TagCommentInput({
           #{tag}
           <button
             type="button"
+            // Without this the input blurs first, EditableComment saves and
+            // unmounts us, and the click never reaches this button.
+            onMouseDown={e => e.preventDefault()}
             onClick={() => removeTag(i)}
             className="ml-0.5 text-blue-400 hover:text-blue-700 leading-none font-bold"
           >
@@ -192,10 +221,14 @@ export function TagCommentInput({
         </span>
       ))}
       <input
+        ref={inputRef}
         type="text"
         value={inputValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
+        // Fires for clicks and arrow-key moves too, so the tag-in-progress
+        // stays correct however the caret got where it is.
+        onSelect={e => setCaret(e.currentTarget.selectionStart ?? 0)}
         onFocus={() => setFocused(true)}
         onBlur={() => {
           setFocused(false);
@@ -215,7 +248,7 @@ export function TagCommentInput({
                 // Keeps focus in the input so EditableComment's onBlur=save
                 // doesn't fire and tear the dropdown down before onClick lands.
                 onMouseDown={e => e.preventDefault()}
-                onClick={() => commitTag(s.tag)}
+                onClick={() => commitTag(s.tag, inputValue, caret)}
                 onMouseEnter={() => setHighlight(i)}
                 className={`w-full flex items-center justify-between gap-2 px-2 py-1 text-left ${
                   i === activeIndex ? 'bg-blue-50' : 'hover:bg-gray-50'

@@ -52,39 +52,39 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
 
   return (
     <div className={`border-b border-gray-100 py-2 ${rowBg}`}>
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm">{formatName()}</span>
         </div>
         {isSteppable ? (
-          <div className="shrink-0 w-32 flex items-center justify-end gap-1">
+          <div className="shrink-0 w-[5.75rem] sm:w-32 flex items-center justify-end gap-0.5 sm:gap-1">
             <button
               onClick={() => setBlocks(b => Math.max(1, b - 1))}
               disabled={blocks <= 1}
               title="One fewer block"
-              className="w-6 h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               −
             </button>
-            <span className="w-5 text-center text-sm font-mono font-bold">{blocks}</span>
+            <span className="w-4 sm:w-5 text-center text-sm font-mono font-bold">{blocks}</span>
             <button
               onClick={() => setBlocks(b => b + 1)}
               title="One more block"
-              className="w-6 h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50"
+              className="w-5 h-5 sm:w-6 sm:h-6 flex items-center justify-center border border-gray-300 text-gray-600 rounded text-sm font-bold hover:bg-gray-50"
             >
               +
             </button>
             <button
               onClick={handleAdd}
               disabled={!canAdd || createEntry.isPending}
-              className="ml-1 h-7 px-2 flex items-center justify-center bg-blue-600 text-white rounded-lg text-xs font-bold hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="ml-0.5 sm:ml-1 h-6 sm:h-7 px-1.5 sm:px-2 flex items-center justify-center bg-blue-600 text-white rounded-lg text-[10px] sm:text-xs font-bold hover:bg-blue-700 disabled:opacity-30 disabled:cursor-not-allowed"
             >
               Log
             </button>
           </div>
         ) : (
-          // Same w-32 slot so steppable and plain rows keep their columns aligned.
-          <div className="shrink-0 w-32 flex items-center justify-end">
+          // Same slot width so steppable and plain rows keep their columns aligned.
+          <div className="shrink-0 w-[5.75rem] sm:w-32 flex items-center justify-end">
             <button
               onClick={handleAdd}
               disabled={!canAdd || createEntry.isPending}
@@ -94,9 +94,9 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
             </button>
           </div>
         )}
-        <span className="w-12 text-right text-sm font-mono">{item.point_value}</span>
-        <span className="w-10 text-center text-sm font-mono">{item.entry_count}</span>
-        <span className={`w-14 text-right text-sm font-mono font-bold ${totalColor}`}>
+        <span className="w-7 sm:w-12 text-right text-sm font-mono">{item.point_value}</span>
+        <span className="w-6 sm:w-10 text-center text-sm font-mono">{item.entry_count}</span>
+        <span className={`w-11 sm:w-14 text-right text-sm font-mono font-bold ${totalColor}`}>
           {totalValue > 0 ? '+' : ''}{totalValue % 1 === 0 ? totalValue : totalValue.toFixed(1)}
         </span>
       </div>

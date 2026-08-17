@@ -37,12 +37,12 @@ export function GoalsSection({
       </div>
       {open && (
         <>
-          <div className="flex items-center gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
             <div className="flex-1">Name</div>
-            <div className="w-32"></div>
-            <div className="w-12 text-right">Pts</div>
-            <div className="w-10 text-center">#</div>
-            <div className="w-14 text-right">Total</div>
+            <div className="w-[5.75rem] sm:w-32"></div>
+            <div className="w-7 sm:w-12 text-right">Pts</div>
+            <div className="w-6 sm:w-10 text-center">#</div>
+            <div className="w-11 sm:w-14 text-right">Total</div>
           </div>
           {goals.length === 0 && (
             <p className="text-sm text-gray-400 py-2">
