@@ -14,18 +14,24 @@ def _deadline_score(point_value: int | None, due_date: date_cls | None, date_obj
     """Compute score for a todo/task/project. Returns (score, is_upcoming).
 
     Completing it earns its points on the completion day, whenever that is.
-    Until then it only docks points once its due date has arrived; an item with
+    Until then it docks points every day from its due date onward; an item with
     no due date never docks, it just sits in the list.
+
+    The penalty belongs to the day, not to the item: an item that was overdue on
+    a given day stays overdue for that day forever, even once it is finally
+    completed (which separately earns its points on the completion day). Without
+    this, clearing a backlog item silently raised every past day it had been
+    docking, so a day could never be recomputed to the value it was stored with.
     """
     pv = Decimal(point_value) if point_value else Decimal(0)
     if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
         return pv, False
     if due_date is None or due_date > date_obj:
         return Decimal(0), True
-    if completed_at is None:
-        return -pv, False
-    # completed before today — handled by WHERE clause, shouldn't reach here
-    return Decimal(0), False
+    # Overdue on this day. Callers skip items completed before it, so a non-null
+    # completed_at here means it was finished on some later day — too late to
+    # spare this one.
+    return -pv, False
 
 
 async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection) -> DaySummary:

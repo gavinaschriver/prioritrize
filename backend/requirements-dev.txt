@@ -1,0 +1,4 @@
+# Dev-only. The Dockerfile installs requirements.txt alone, so nothing here
+# ships to production.
+-r requirements.txt
+pytest==9.1.1
