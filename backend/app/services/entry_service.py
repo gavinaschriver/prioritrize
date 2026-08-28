@@ -89,7 +89,8 @@ async def create_entry(
             pri_id, uid, data.comment, created_at, data.quantity,
         )
         await _sync_tags(row["id"], uid, data.comment, conn)
-        await upsert_snapshot(user_id, data.target_date, tz_str, conn)
+        # force: backdating into a closed day is exactly the case that must rescore it.
+        await upsert_snapshot(user_id, data.target_date, tz_str, conn, force=True)
     else:
         row = await conn.fetchrow(
             """
@@ -145,7 +146,8 @@ async def delete_entry(
     if entry["created_at"] < start_utc:
         tz = ZoneInfo(tz_str)
         entry_date = entry["created_at"].astimezone(tz).strftime("%Y-%m-%d")
-        await upsert_snapshot(user_id, entry_date, tz_str, conn)
+        # force: the day is closed, but its inputs just changed under it.
+        await upsert_snapshot(user_id, entry_date, tz_str, conn, force=True)
 
     return {"deleted": True}
 
@@ -181,7 +183,8 @@ async def increment_entry(
     if row["created_at"] < start_utc:
         tz = ZoneInfo(tz_str)
         entry_date = row["created_at"].astimezone(tz).strftime("%Y-%m-%d")
-        await upsert_snapshot(user_id, entry_date, tz_str, conn)
+        # force: the day is closed, but its inputs just changed under it.
+        await upsert_snapshot(user_id, entry_date, tz_str, conn, force=True)
 
     return {"quantity": row["quantity"]}
 
@@ -208,7 +211,8 @@ async def decrement_entry(
         if row["created_at"] < start_utc:
             tz = ZoneInfo(tz_str)
             entry_date = row["created_at"].astimezone(tz).strftime("%Y-%m-%d")
-            await upsert_snapshot(user_id, entry_date, tz_str, conn)
+            # force: the day is closed, but its inputs just changed under it.
+        await upsert_snapshot(user_id, entry_date, tz_str, conn, force=True)
         return {"deleted": False, "quantity": row["quantity"]}
 
     # quantity was already 1 (or the entry isn't ours — delete_entry 404s on that).

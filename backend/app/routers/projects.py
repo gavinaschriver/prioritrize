@@ -9,6 +9,7 @@ from app.models.project import (
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
 from app.models.todo import TodoOut
+from app.deps import get_timezone
 from app.services import project_service
 
 router = APIRouter(prefix="/api/projects", tags=["projects"])
@@ -46,8 +47,9 @@ async def update_project(
     data: ProjectUpdate,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.update_project(conn, project_id, user["id"], data)
+    return await project_service.update_project(conn, project_id, user["id"], data, tz)
 
 
 @router.post("/{project_id}/complete", response_model=ProjectOut)
@@ -64,8 +66,9 @@ async def uncomplete_project(
     project_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.uncomplete_project(conn, project_id, user["id"])
+    return await project_service.uncomplete_project(conn, project_id, user["id"], tz)
 
 
 @router.delete("/{project_id}")
@@ -73,8 +76,9 @@ async def delete_project(
     project_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.delete_project(conn, project_id, user["id"])
+    return await project_service.delete_project(conn, project_id, user["id"], tz)
 
 
 # --- Updates ---
@@ -129,8 +133,9 @@ async def update_task(
     data: ProjectTaskUpdate,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.update_task(conn, task_id, user["id"], data)
+    return await project_service.update_task(conn, task_id, user["id"], data, tz)
 
 
 @router.post("/{project_id}/tasks/{task_id}/complete", response_model=ProjectTaskOut)
@@ -149,8 +154,9 @@ async def uncomplete_task(
     task_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.uncomplete_task(conn, task_id, user["id"])
+    return await project_service.uncomplete_task(conn, task_id, user["id"], tz)
 
 
 @router.post("/{project_id}/tasks/{task_id}/convert-to-todo", response_model=TodoOut)
@@ -169,5 +175,6 @@ async def delete_task(
     task_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await project_service.delete_task(conn, task_id, user["id"])
+    return await project_service.delete_task(conn, task_id, user["id"], tz)

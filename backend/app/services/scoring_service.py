@@ -1,9 +1,24 @@
 import asyncpg
+import json
+import logging
 from uuid import UUID
 from decimal import Decimal
-from datetime import date as date_type, date as date_cls
+from datetime import date as date_type, date as date_cls, timedelta
+from zoneinfo import ZoneInfo
 from app.utils.timezone import get_day_boundaries_utc, get_today_str
-from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, DeadlineSummary, BalanceOut
+from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, DeadlineSummary, BalanceOut, RecomputeOut
+
+# Scoring semantics, recorded on every snapshot written.
+#   1 — original. An overdue item's penalty was forgiven once it was completed on
+#       a later day, so past days could never be recomputed to their stored value.
+#   2 — the overdue penalty belongs to the day and survives a later completion.
+SCORING_VERSION = 2
+
+# Upper bound on how many days one backfill will compute, so a long-dormant
+# account can't turn a single page load into hundreds of scoring passes.
+BACKFILL_LIMIT_DAYS = 90
+
+logger = logging.getLogger(__name__)
 
 
 def to_uuid(user_id: str) -> UUID:
@@ -150,7 +165,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     )
 
     deadlines = []
-    rolling_score = Decimal(0)
+    rolling = []
 
     for p in project_rows:
         due_date = p["due_date"]
@@ -160,8 +175,14 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         if due_date is None:
             # Rolling project — only scores if completed today
             if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
-                rolling_score += Decimal(pv) if pv else Decimal(0)
-            # Not shown in deadlines list
+                rolling.append(DeadlineSummary(
+                    id=p["id"], type='project', name=p["name"],
+                    project_id=None, project_name=None,
+                    point_value=pv, due_date=None, created_at=p["created_at"],
+                    completed_at=completed_at,
+                    score=Decimal(pv) if pv else Decimal(0), is_upcoming=False,
+                ))
+            # Kept out of the deadlines list — it has no due date to sort by
         else:
             score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
             if completed_at is not None and completed_at < start_utc:
@@ -208,6 +229,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # Sort combined deadlines by due_date ASC (overdue first, then upcoming, undated last)
     deadlines.sort(key=lambda d: (d.due_date is None, d.due_date or date_cls.max))
     deadlines_subtotal = sum(d.score for d in deadlines)
+    rolling_subtotal = sum(r.score for r in rolling)
 
     return DaySummary(
         date=date_str,
@@ -216,47 +238,302 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         bonuses=bonuses,
         todos=todos,
         deadlines=deadlines,
+        rolling=rolling,
         goals_subtotal=goals_subtotal,
         bonuses_subtotal=bonuses_subtotal,
         todos_subtotal=todos_subtotal,
         deadlines_subtotal=deadlines_subtotal,
-        daily_score=goals_subtotal + bonuses_subtotal + todos_subtotal + deadlines_subtotal + rolling_score,
+        rolling_subtotal=rolling_subtotal,
+        daily_score=(
+            goals_subtotal + bonuses_subtotal + todos_subtotal
+            + deadlines_subtotal + rolling_subtotal
+        ),
     )
 
 
-async def upsert_snapshot(user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection):
+def build_breakdown(summary: DaySummary) -> dict:
+    """The per-line detail behind a day's score, frozen into daily_snapshot.
+
+    Scoring reads prioritry.is_active, point_value, todo.due_date and completed_at
+    live, and none of them are versioned, so a day recomputed later can legitimately
+    differ from the day that was stored. Without a record of the inputs there is no
+    way to tell that apart from a scoring bug — which is exactly the position the
+    2026-08-14..19 snapshots left us in.
+
+    Decimals are stored as strings so JSON round-trips them without going through
+    a float. Only score-affecting lines are kept; items that were merely pending
+    are omitted, since they contributed nothing.
+    """
+    def prioritry_line(p: DayPrioritrySummary) -> dict:
+        return {
+            "id": str(p.prioritry_id),
+            "name": p.name,
+            "point_value": p.point_value,
+            "entry_count": p.entry_count,
+            "value": str(p.total_value),
+        }
+
+    def item_line(i) -> dict:
+        return {
+            "id": str(i.id),
+            "name": i.name,
+            "point_value": i.point_value,
+            "due_date": i.due_date.isoformat() if i.due_date else None,
+            "completed_at": i.completed_at.isoformat() if i.completed_at else None,
+            "score": str(i.score),
+        }
+
+    return {
+        # Shape of this document, independent of the scoring-semantics version
+        # recorded in daily_snapshot.version.
+        "schema": 1,
+        "date": summary.date,
+        "timezone": summary.timezone,
+        "subtotals": {
+            "goals": str(summary.goals_subtotal),
+            "bonuses": str(summary.bonuses_subtotal),
+            "todos": str(summary.todos_subtotal),
+            "deadlines": str(summary.deadlines_subtotal),
+            "rolling": str(summary.rolling_subtotal),
+        },
+        "goals_logged": [prioritry_line(g) for g in summary.goals if g.entry_count > 0],
+        # The missed-goal penalties — usually the largest single driver of a
+        # negative day, and the hardest thing to reconstruct after the fact.
+        "goals_unlogged": [prioritry_line(g) for g in summary.goals if g.entry_count == 0],
+        "bonuses": [prioritry_line(b) for b in summary.bonuses if b.entry_count > 0],
+        "todos": [item_line(t) for t in summary.todos if t.score != 0],
+        "deadlines": [item_line(d) for d in summary.deadlines if d.score != 0],
+        "rolling": [item_line(r) for r in summary.rolling],
+        "daily_score": str(summary.daily_score),
+    }
+
+
+async def upsert_snapshot(
+    user_id: str,
+    date_str: str,
+    tz_str: str,
+    conn: asyncpg.Connection,
+    force: bool = False,
+):
+    """Write (or refresh) one day's cached score.
+
+    A finalized day is immutable: this returns the stored score untouched unless
+    called with force=True. That is what makes the backfill idempotent — re-running
+    it can only fill gaps, never rewrite history — and it means every overwrite of a
+    closed day is an explicit decision made by a caller that knows the inputs moved.
+    """
     uid = to_uuid(user_id)
+    day = date_type.fromisoformat(date_str)
+
+    existing = await conn.fetchrow(
+        "SELECT score, finalized FROM daily_snapshot WHERE user_id = $1 AND date = $2",
+        uid, day,
+    )
+    if existing and existing["finalized"] and not force:
+        return existing["score"]
+
     summary = await compute_day_score(user_id, date_str, tz_str, conn)
+    # A day is closed once it is no longer the user's today.
+    finalized = day < date_type.fromisoformat(get_today_str(tz_str))
+
     await conn.execute(
         """
-        INSERT INTO daily_snapshot (user_id, date, score, computed_at)
-        VALUES ($1, $2, $3, now())
+        INSERT INTO daily_snapshot
+            (user_id, date, score, breakdown, timezone, version, finalized, computed_at)
+        VALUES ($1, $2, $3, $4::jsonb, $5, $6, $7, now())
         ON CONFLICT (user_id, date)
-        DO UPDATE SET score = $3, computed_at = now()
+        DO UPDATE SET
+            score = $3, breakdown = $4::jsonb, timezone = $5,
+            version = $6, finalized = $7, computed_at = now()
         """,
-        uid, date_type.fromisoformat(date_str), summary.daily_score,
+        uid, day, summary.daily_score,
+        json.dumps(build_breakdown(summary)), tz_str,
+        SCORING_VERSION, finalized,
     )
     return summary.daily_score
 
 
-async def finalize_yesterday(user_id: str, tz_str: str, conn: asyncpg.Connection):
-    from datetime import datetime, timedelta
-    from zoneinfo import ZoneInfo
+async def find_unsnapshotted_days(
+    user_id: str, tz_str: str, conn: asyncpg.Connection
+) -> list[date_type]:
+    """Every closed day from the user's first entry to yesterday that has no
+    usable snapshot, oldest first.
+
+    Holes are not only at the end. 2026-05-24 and 2026-06-10 both sit well before
+    the newest snapshot, so walking forward from max(date) would never reach them.
+    The whole active range has to be scanned.
+
+    A row that exists but is still marked unfinalized counts as missing too: it was
+    written while that day was in progress and never closed out.
+    """
     uid = to_uuid(user_id)
-    tz = ZoneInfo(tz_str)
-    yesterday = (datetime.now(tz) - timedelta(days=1)).strftime("%Y-%m-%d")
-    existing = await conn.fetchval(
-        "SELECT id FROM daily_snapshot WHERE user_id = $1 AND date = $2",
-        uid, date_type.fromisoformat(yesterday),
+    yesterday = date_type.fromisoformat(get_today_str(tz_str)) - timedelta(days=1)
+
+    first_active = await conn.fetchval(
+        "SELECT min((created_at AT TIME ZONE $2)::date) FROM entry WHERE user_id = $1",
+        uid, tz_str,
     )
-    if not existing:
-        await upsert_snapshot(user_id, yesterday, tz_str, conn)
+    if first_active is None or first_active > yesterday:
+        return []
+
+    # Offsets rather than generate_series over dates: generate_series on a date
+    # yields timestamptz, and casting that back to date would silently go through
+    # the session timezone instead of the user's.
+    rows = await conn.fetch(
+        """
+        SELECT ($2::date + i) AS day
+        FROM generate_series(0, ($3::date - $2::date)) i
+        LEFT JOIN daily_snapshot s
+          ON s.user_id = $1 AND s.date = $2::date + i
+        WHERE s.id IS NULL OR s.finalized = false
+        ORDER BY i
+        """,
+        uid, first_active, yesterday,
+    )
+    return [r["day"] for r in rows]
+
+
+async def backfill_snapshots(
+    user_id: str, tz_str: str, conn: asyncpg.Connection
+) -> list[date_type]:
+    """Fill in every missing past-day snapshot. Returns the days written.
+
+    Replaces finalize_yesterday, which only ever considered yesterday and gave up
+    if a row already existed. Any day the app wasn't opened for got no row at all,
+    and get_balance sums only the rows that exist — so those days counted as zero,
+    losing both their earned points and their missed-goal penalties.
+
+    Idempotent: upsert_snapshot won't touch a finalized day without force, so
+    re-running this can only fill gaps, never rewrite history.
+    """
+    days = await find_unsnapshotted_days(user_id, tz_str, conn)
+    if not days:
+        return []
+
+    if len(days) > BACKFILL_LIMIT_DAYS:
+        # Keep the most recent — that's what the user is actually looking at.
+        # Say so rather than truncating silently, or the balance is quietly wrong.
+        skipped = days[:-BACKFILL_LIMIT_DAYS]
+        days = days[-BACKFILL_LIMIT_DAYS:]
+        logger.warning(
+            "backfill capped at %d days for user %s; %d older days left "
+            "unsnapshotted (%s..%s) and excluded from the balance",
+            BACKFILL_LIMIT_DAYS, user_id, len(skipped),
+            skipped[0].isoformat(), skipped[-1].isoformat(),
+        )
+
+    for day in days:
+        await upsert_snapshot(user_id, day.isoformat(), tz_str, conn)
+
+    logger.info("backfilled %d snapshot(s) for user %s", len(days), user_id)
+    return days
+
+
+def earliest_affected_day(
+    tz_str: str, due_dates=(), timestamps=()
+) -> date_type | None:
+    """The first local day a todo/task/project change could have altered.
+
+    A due date is already a local calendar date; a completed_at is an instant that
+    has to be resolved in the user's zone first. Returns None when the item has
+    neither, in which case it never scored on any past day.
+    """
+    tz = ZoneInfo(tz_str)
+    days = [d for d in due_dates if d is not None]
+    days += [t.astimezone(tz).date() for t in timestamps if t is not None]
+    return min(days) if days else None
+
+
+async def rescore_from(
+    user_id: str, start_day: date_type | None, tz_str: str, conn: asyncpg.Connection
+) -> list[date_type]:
+    """Force-rescore every closed day from start_day through yesterday.
+
+    Called when a todo, task or project changes in a way that alters what past days
+    were worth: a due date moving, an item being deleted, a completion being undone.
+    The range matters because an overdue item docks points on *every* day it stayed
+    open, so removing or re-dating one moves all of them, not just one.
+
+    Completing something is deliberately not in that set. Since scoring version 2 an
+    overdue penalty belongs to the day it was incurred, so finishing an item late
+    only affects the day it was finished — which is today, and today isn't snapshotted.
+    """
+    if start_day is None:
+        return []
+
+    yesterday = date_type.fromisoformat(get_today_str(tz_str)) - timedelta(days=1)
+    if start_day > yesterday:
+        return []
+
+    span = (yesterday - start_day).days + 1
+    if span > BACKFILL_LIMIT_DAYS:
+        capped = yesterday - timedelta(days=BACKFILL_LIMIT_DAYS - 1)
+        logger.warning(
+            "rescore for user %s capped at %d days; %s..%s left stale",
+            user_id, BACKFILL_LIMIT_DAYS, start_day.isoformat(),
+            (capped - timedelta(days=1)).isoformat(),
+        )
+        start_day = capped
+
+    days = [
+        start_day + timedelta(days=i)
+        for i in range((yesterday - start_day).days + 1)
+    ]
+    for day in days:
+        await upsert_snapshot(user_id, day.isoformat(), tz_str, conn, force=True)
+    return days
+
+
+def _loaded_breakdown(value) -> dict | None:
+    """asyncpg hands jsonb back as text unless a codec is registered."""
+    if value is None:
+        return None
+    return json.loads(value) if isinstance(value, str) else value
+
+
+async def recompute_day(
+    user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection
+) -> RecomputeOut:
+    """Rescore one day and report what moved.
+
+    This is the only sanctioned way to overwrite a finalized snapshot. Everything
+    else treats closed days as immutable, so if a score changes here it is because
+    a caller asked for it — and the two breakdowns show exactly what differed.
+    """
+    uid = to_uuid(user_id)
+    day = date_type.fromisoformat(date_str)
+
+    before = await conn.fetchrow(
+        """
+        SELECT score, breakdown, version, computed_at
+        FROM daily_snapshot WHERE user_id = $1 AND date = $2
+        """,
+        uid, day,
+    )
+    new_score = await upsert_snapshot(user_id, date_str, tz_str, conn, force=True)
+    after = await conn.fetchrow(
+        "SELECT breakdown FROM daily_snapshot WHERE user_id = $1 AND date = $2",
+        uid, day,
+    )
+
+    previous_score = before["score"] if before else None
+    return RecomputeOut(
+        date=date_str,
+        timezone=tz_str,
+        previous_score=previous_score,
+        new_score=new_score,
+        delta=None if previous_score is None else new_score - previous_score,
+        previous_version=before["version"] if before else None,
+        previous_computed_at=before["computed_at"] if before else None,
+        previous_breakdown=_loaded_breakdown(before["breakdown"]) if before else None,
+        breakdown=_loaded_breakdown(after["breakdown"]),
+    )
 
 
 async def get_balance(user_id: str, tz_str: str, conn: asyncpg.Connection) -> BalanceOut:
     uid = to_uuid(user_id)
     today_str = get_today_str(tz_str)
-    await finalize_yesterday(user_id, tz_str, conn)
+    await backfill_snapshots(user_id, tz_str, conn)
     past_total = await conn.fetchval(
         """
         SELECT COALESCE(SUM(score), 0)

@@ -135,10 +135,14 @@ export interface DaySummary {
   bonuses: DayPrioritrySummary[];
   todos: TodoSummary[];
   deadlines: DeadlineSummary[];
+  // Undated projects completed today. They have no due date to sort by, so they
+  // are kept out of `deadlines` and scored in their own subtotal.
+  rolling: DeadlineSummary[];
   goals_subtotal: number;
   bonuses_subtotal: number;
   todos_subtotal: number;
   deadlines_subtotal: number;
+  rolling_subtotal: number;
   daily_score: number;
 }
 

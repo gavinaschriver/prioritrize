@@ -7,10 +7,25 @@ from app.models.project import (
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
 from app.models.todo import TodoOut
+from app.services.scoring_service import earliest_affected_day, rescore_from
 
 
 def to_uuid(val) -> UUID:
     return UUID(val) if isinstance(val, str) else val
+
+
+async def _rescore_for(conn, user_id, tz_str, *rows):
+    """Rescore the past days a project/task change touched.
+
+    An overdue item docks points on every day it stayed open, so re-dating or
+    deleting one moves a whole range of past days rather than a single one.
+    """
+    start = earliest_affected_day(
+        tz_str,
+        due_dates=[r["due_date"] for r in rows if r],
+        timestamps=[r["completed_at"] for r in rows if r],
+    )
+    await rescore_from(user_id, start, tz_str, conn)
 
 
 _TASK_COLS = "id, project_id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
@@ -79,14 +94,15 @@ async def create_project(conn: asyncpg.Connection, user_id: str, data: ProjectCr
     return ProjectOut(**dict(row))
 
 
-async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: str, data: ProjectUpdate) -> ProjectOut:
+async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: str, data: ProjectUpdate, tz_str: str = "UTC") -> ProjectOut:
     uid = to_uuid(user_id)
-    row = await conn.fetchrow(
-        "SELECT id FROM project WHERE id = $1 AND user_id = $2",
+    before = await conn.fetchrow(
+        "SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at FROM project WHERE id = $1 AND user_id = $2",
         project_id, uid,
     )
-    if not row:
+    if not before:
         raise HTTPException(status_code=404, detail="Project not found")
+    row = before
 
     # Include fields explicitly set (allow nulling out due_date/point_value)
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
@@ -107,6 +123,9 @@ async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: st
         """,
         project_id, *values,
     )
+    # Both rows: moving a due date later still changes the days it used to dock.
+    if before["due_date"] != row["due_date"] or before["point_value"] != row["point_value"]:
+        await _rescore_for(conn, user_id, tz_str, before, row)
     return ProjectOut(**dict(row))
 
 
@@ -125,29 +144,46 @@ async def complete_project(conn: asyncpg.Connection, project_id: UUID, user_id: 
     return ProjectOut(**dict(row))
 
 
-async def uncomplete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) -> ProjectOut:
+async def uncomplete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str, tz_str: str = "UTC") -> ProjectOut:
     uid = to_uuid(user_id)
+    # Read the old completion day before it is overwritten with NULL.
+    before = await conn.fetchrow(
+        "SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at FROM project WHERE id = $1 AND user_id = $2",
+        project_id, uid,
+    )
+    if not before:
+        raise HTTPException(status_code=404, detail="Project not found")
+
     row = await conn.fetchrow(
         """
         UPDATE project SET completed_at = NULL, updated_at = now()
-        WHERE id = $1 AND user_id = $2
+        WHERE id = $1
         RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
         """,
-        project_id, uid,
+        project_id,
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Project not found")
+    await _rescore_for(conn, user_id, tz_str, before)
     return ProjectOut(**dict(row))
 
 
-async def delete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) -> dict:
+async def delete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str, tz_str: str = "UTC") -> dict:
     uid = to_uuid(user_id)
+    # Tasks cascade with the project, so their scoring days move too.
+    before = await conn.fetch(
+        """
+        SELECT due_date, completed_at FROM project WHERE id = $1 AND user_id = $2
+        UNION ALL
+        SELECT due_date, completed_at FROM project_task WHERE project_id = $1 AND user_id = $2
+        """,
+        project_id, uid,
+    )
     result = await conn.execute(
         "DELETE FROM project WHERE id = $1 AND user_id = $2",
         project_id, uid,
     )
     if result == "DELETE 0":
         raise HTTPException(status_code=404, detail="Project not found")
+    await _rescore_for(conn, user_id, tz_str, *before)
     return {"deleted": True}
 
 
@@ -219,13 +255,13 @@ async def create_task(conn: asyncpg.Connection, project_id: UUID, user_id: str, 
     return ProjectTaskOut(**dict(row))
 
 
-async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, data: ProjectTaskUpdate) -> ProjectTaskOut:
+async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, data: ProjectTaskUpdate, tz_str: str = "UTC") -> ProjectTaskOut:
     uid = to_uuid(user_id)
-    exists = await conn.fetchval(
-        "SELECT id FROM project_task WHERE id = $1 AND user_id = $2",
+    before = await conn.fetchrow(
+        f"SELECT {_TASK_COLS} FROM project_task WHERE id = $1 AND user_id = $2",
         task_id, uid,
     )
-    if not exists:
+    if not before:
         raise HTTPException(status_code=404, detail="Task not found")
 
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
@@ -246,6 +282,9 @@ async def update_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, dat
         """,
         task_id, *values,
     )
+    # Both rows: moving a due date later still changes the days it used to dock.
+    if before["due_date"] != row["due_date"] or before["point_value"] != row["point_value"]:
+        await _rescore_for(conn, user_id, tz_str, before, row)
     return ProjectTaskOut(**dict(row))
 
 
@@ -264,29 +303,41 @@ async def complete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -
     return ProjectTaskOut(**dict(row))
 
 
-async def uncomplete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> ProjectTaskOut:
+async def uncomplete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, tz_str: str = "UTC") -> ProjectTaskOut:
     uid = to_uuid(user_id)
+    # Read the old completion day first: RETURNING hands back the post-update row,
+    # where completed_at is already NULL and the day it earned on is unrecoverable.
+    before = await conn.fetchrow(
+        f"SELECT {_TASK_COLS} FROM project_task WHERE id = $1 AND user_id = $2",
+        task_id, uid,
+    )
+    if not before:
+        raise HTTPException(status_code=404, detail="Task not found")
+
     row = await conn.fetchrow(
         f"""
         UPDATE project_task SET completed_at = NULL, updated_at = now()
-        WHERE id = $1 AND user_id = $2
+        WHERE id = $1
         RETURNING {_TASK_COLS}
         """,
-        task_id, uid,
+        task_id,
     )
-    if not row:
-        raise HTTPException(status_code=404, detail="Task not found")
+    await _rescore_for(conn, user_id, tz_str, before)
     return ProjectTaskOut(**dict(row))
 
 
-async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> dict:
+async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, tz_str: str = "UTC") -> dict:
     uid = to_uuid(user_id)
-    result = await conn.execute(
-        "DELETE FROM project_task WHERE id = $1 AND user_id = $2",
+    before = await conn.fetchrow(
+        f"SELECT {_TASK_COLS} FROM project_task WHERE id = $1 AND user_id = $2",
         task_id, uid,
     )
-    if result == "DELETE 0":
+    if not before:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    await conn.execute("DELETE FROM project_task WHERE id = $1", task_id)
+    # The row is gone, so every day it earned or docked on has to be rescored.
+    await _rescore_for(conn, user_id, tz_str, before)
     return {"deleted": True}
 
 

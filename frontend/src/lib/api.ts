@@ -11,6 +11,10 @@ async function authFetch(path: string, options: RequestInit = {}) {
     headers: {
       'Content-Type': 'application/json',
       'Authorization': `Bearer ${session.access_token}`,
+      // Scoring buckets by local day, so writes that move a past day's score need
+      // to know the zone. Sent on every request rather than threaded through each
+      // mutation as a query param.
+      'X-Timezone': getUserTimezone(),
       ...options.headers,
     },
   });

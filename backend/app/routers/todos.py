@@ -5,6 +5,7 @@ from app.auth import get_current_user
 from app.database import get_conn
 from app.models.todo import TodoCreate, TodoUpdate, TodoOut, TodoConvertToTask
 from app.models.project import ProjectTaskOut
+from app.deps import get_timezone
 from app.services import todo_service
 
 router = APIRouter(prefix="/api/todos", tags=["todos"])
@@ -33,8 +34,9 @@ async def update_todo(
     data: TodoUpdate,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await todo_service.update_todo(conn, todo_id, user["id"], data)
+    return await todo_service.update_todo(conn, todo_id, user["id"], data, tz)
 
 
 @router.post("/{todo_id}/complete", response_model=TodoOut)
@@ -51,8 +53,9 @@ async def uncomplete_todo(
     todo_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await todo_service.uncomplete_todo(conn, todo_id, user["id"])
+    return await todo_service.uncomplete_todo(conn, todo_id, user["id"], tz)
 
 
 @router.post("/{todo_id}/convert-to-task", response_model=ProjectTaskOut)
@@ -70,5 +73,6 @@ async def delete_todo(
     todo_id: UUID,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
+    tz: str = Depends(get_timezone),
 ):
-    return await todo_service.delete_todo(conn, todo_id, user["id"])
+    return await todo_service.delete_todo(conn, todo_id, user["id"], tz)

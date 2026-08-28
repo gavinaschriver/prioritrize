@@ -17,6 +17,7 @@ export function useCreateTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -29,6 +30,7 @@ export function useUpdateTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -40,6 +42,7 @@ export function useCompleteTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -51,6 +54,7 @@ export function useUncompleteTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -65,6 +69,7 @@ export function useConvertTodoToTask() {
       queryClient.invalidateQueries({ queryKey: ['project', variables.projectId] });
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -76,6 +81,7 @@ export function useDeleteTodo() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }

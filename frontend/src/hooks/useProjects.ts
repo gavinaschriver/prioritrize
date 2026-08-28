@@ -25,6 +25,7 @@ export function useCreateProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -38,6 +39,7 @@ export function useUpdateProject() {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['project', variables.id] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -49,6 +51,7 @@ export function useCompleteProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -60,6 +63,7 @@ export function useUncompleteProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -71,6 +75,7 @@ export function useDeleteProject() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -118,6 +123,7 @@ export function useCreateProjectTask(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -130,6 +136,7 @@ export function useUpdateProjectTask(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -142,6 +149,7 @@ export function useCompleteProjectTask(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -154,6 +162,7 @@ export function useUncompleteProjectTask(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -166,6 +175,7 @@ export function useDeleteProjectTask(projectId: string) {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
@@ -179,6 +189,7 @@ export function useConvertTaskToTodo(projectId: string) {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
       queryClient.invalidateQueries({ queryKey: ['todos'] });
       queryClient.invalidateQueries({ queryKey: ['daySummary'] });
+      queryClient.invalidateQueries({ queryKey: ['balance'] });
     },
   });
 }
