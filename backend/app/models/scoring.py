@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, computed_field
 from datetime import datetime, date
 from uuid import UUID
 from decimal import Decimal
@@ -34,6 +34,20 @@ class TodoSummary(BaseModel):
     is_upcoming: bool
     comment: str | None = None
 
+    # The due date this day was actually scored against. Differs from due_date only
+    # when the item was deferred out from under this day -- see _effective_due.
+    effective_due_date: date | None = None
+
+    @computed_field
+    @property
+    def deferred(self) -> bool:
+        """This day's dock is owed to a deferral, not to the item's current due date.
+
+        Without it the row shows a negative score beside a due date that hasn't
+        arrived yet, which reads as a bug rather than a locked-in penalty.
+        """
+        return self.score < 0 and self.effective_due_date != self.due_date
+
 
 class DeadlineSummary(BaseModel):
     id: UUID
@@ -48,6 +62,20 @@ class DeadlineSummary(BaseModel):
     score: Decimal
     is_upcoming: bool
     comment: str | None = None
+
+    # The due date this day was actually scored against. Differs from due_date only
+    # when the item was deferred out from under this day -- see _effective_due.
+    effective_due_date: date | None = None
+
+    @computed_field
+    @property
+    def deferred(self) -> bool:
+        """This day's dock is owed to a deferral, not to the item's current due date.
+
+        Without it the row shows a negative score beside a due date that hasn't
+        arrived yet, which reads as a bug rather than a locked-in penalty.
+        """
+        return self.score < 0 and self.effective_due_date != self.due_date
 
 
 class DaySummary(BaseModel):

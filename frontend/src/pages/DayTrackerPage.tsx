@@ -9,6 +9,7 @@ import { GoalsSection } from "../components/day-tracker/GoalsSection";
 import { BonusesSection } from "../components/day-tracker/BonusesSection";
 import { DeadlinesSection } from "../components/day-tracker/DeadlinesSection";
 import { DailyScoreSummary } from "../components/day-tracker/DailyScoreSummary";
+import { AppliedDeferrals } from "../components/day-tracker/AppliedDeferrals";
 import { CompletedToday } from "../components/day-tracker/CompletedToday";
 import { SpendingInput } from "../components/day-tracker/SpendingInput";
 import { SpendingLog } from "../components/day-tracker/SpendingLog";
@@ -147,6 +148,8 @@ export function DayTrackerPage() {
           <SpendingInput selectedDate={selectedDate} />
           <CompletedToday summary={summary} />
           <SpendingLog selectedDate={selectedDate} />
+
+          <AppliedDeferrals summary={summary} />
 
           <DailyScoreSummary score={Number(summary.daily_score)} />
         </>

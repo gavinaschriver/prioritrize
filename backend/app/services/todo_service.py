@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from app.models.todo import TodoCreate, TodoUpdate, TodoOut
 from app.models.project import ProjectTaskOut
-from app.services.scoring_service import earliest_affected_day, rescore_from
+from app.services.scoring_service import earliest_affected_day, record_deferral, rescore_from
 
 
 def to_uuid(val) -> UUID:
@@ -72,6 +72,12 @@ async def update_todo(
         f"UPDATE todo SET {set_clauses}, updated_at = now() WHERE id = $1 RETURNING {_COLS}",
         todo_id, *values,
     )
+    # Logged before the rescore, not after: rescore_from recomputes those days from
+    # live data, so a deferral recorded afterwards would have nothing left to protect.
+    if before["due_date"] != row["due_date"]:
+        await record_deferral(
+            conn, user_id, "todo", todo_id, before, row["due_date"], tz_str
+        )
     # Both rows: moving a due date later still changes the days it used to dock.
     if before["due_date"] != row["due_date"] or before["point_value"] != row["point_value"]:
         await _rescore_for(conn, user_id, tz_str, before, row)

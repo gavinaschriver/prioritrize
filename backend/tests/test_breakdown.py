@@ -29,19 +29,25 @@ def goal(name, pv, entry_count):
     )
 
 
-def todo(name, pv, score, due=None, completed=None):
+def todo(name, pv, score, due=None, completed=None, effective=...):
+    # effective defaults to due, which is what compute_day_score sets on anything
+    # that was never deferred. Pass it explicitly to model an item that was.
+    eff = due if effective is ... else effective
     return TodoSummary(
         id=uuid4(), name=name, point_value=pv,
         due_date=date.fromisoformat(due) if due else None,
+        effective_due_date=date.fromisoformat(eff) if eff else None,
         completed_at=completed, created_at=datetime(2026, 8, 1, tzinfo=timezone.utc),
         score=Decimal(score), is_upcoming=(score == 0),
     )
 
 
-def deadline(name, pv, score, due=None, completed=None):
+def deadline(name, pv, score, due=None, completed=None, effective=...):
+    eff = due if effective is ... else effective
     return DeadlineSummary(
         id=uuid4(), type="task", name=name, project_id=uuid4(), project_name="P",
         point_value=pv, due_date=date.fromisoformat(due) if due else None,
+        effective_due_date=date.fromisoformat(eff) if eff else None,
         created_at=datetime(2026, 8, 1, tzinfo=timezone.utc), completed_at=completed,
         score=Decimal(score), is_upcoming=(score == 0),
     )
@@ -152,4 +158,32 @@ def test_timezone_and_date_are_recorded():
     b = build_breakdown(summary())
     assert b["timezone"] == "America/Chicago"
     assert b["date"] == "2026-08-19"
-    assert b["schema"] == 1
+    assert b["schema"] == 2
+
+
+# --- Deferred lines --------------------------------------------------------
+
+def test_an_ordinary_line_carries_no_effective_due_date():
+    """The key is noise on every line that was scored against its own due date."""
+    b = build_breakdown(summary(todos=[todo("Taxes", 10, -10, due="2026-08-18")]))
+    assert "effective_due_date" not in b["todos"][0]
+
+
+def test_a_deferred_line_records_the_date_it_was_scored_against():
+    """Otherwise a frozen day shows a dock against a due date that had not arrived,
+    and there is no way to tell a locked penalty from a scoring bug."""
+    b = build_breakdown(summary(todos=[
+        todo("Change tires", 10, -10, due="2026-09-05", effective="2026-08-24"),
+    ]))
+    line = b["todos"][0]
+    assert line["due_date"] == "2026-09-05"
+    assert line["effective_due_date"] == "2026-08-24"
+    assert line["score"] == "-10"
+
+
+def test_a_cleared_due_date_records_a_null_against_its_floor():
+    b = build_breakdown(summary(todos=[
+        todo("Change tires", 10, -10, due=None, effective="2026-08-24"),
+    ]))
+    assert b["todos"][0]["due_date"] is None
+    assert b["todos"][0]["effective_due_date"] == "2026-08-24"

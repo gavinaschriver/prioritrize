@@ -8,6 +8,7 @@ import {
 import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
 import { EditableComment } from "./EditableComment";
 import { ConvertTaskToTodo } from "../shared/ConvertTaskToTodo";
+import { DeferredBadge } from "../shared/DeferredBadge";
 import type { DeadlineSummary } from "../../types";
 
 interface DeadlineRowProps {
@@ -39,7 +40,10 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
     : score > 0
       ? "text-green-600"
       : "text-red-600";
-  const rowBg = urgencyRowClass(item.due_date, viewedDate);
+  // Coloured by the date this day is actually scored against, which is the item's
+  // own due date except on days a deferral pushed out from under. Those days keep
+  // the urgency they really had, so the row can't sit calm and green while docking.
+  const rowBg = urgencyRowClass(item.effective_due_date, viewedDate);
 
   const dueLabel = item.due_date ? formatDueDate(item.due_date) : null;
   const addedDate = new Date(item.created_at).toLocaleDateString(undefined, {
@@ -174,6 +178,9 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
             <span className="text-sm text-gray-900 wrap-break-word">
               {item.name}
             </span>
+          )}
+          {item.deferred && (
+            <DeferredBadge effectiveDueDate={item.effective_due_date} />
           )}
           {item.type === "task" && item.project_name && item.project_id && (
             <Link

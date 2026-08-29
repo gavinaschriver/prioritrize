@@ -13,7 +13,7 @@ from decimal import Decimal
 
 import pytest
 
-from app.services.scoring_service import _deadline_score
+from app.services.scoring_service import _deadline_score, _effective_due
 from app.utils.timezone import get_day_boundaries_utc
 
 TZ = "America/Chicago"
@@ -204,3 +204,31 @@ def test_completion_at_the_next_midnight_belongs_to_the_next_day():
         "2026-08-16", point_value=10, due_date="2026-08-16", completed_at=end_utc
     )
     assert score == Decimal(-10)
+
+
+# --- Effective due dates ---------------------------------------------------
+# The floor a deferral leaves behind. Scoring a day against the earlier of the
+# item's current date and its floor is what stops a push from refunding the days
+# it had already been docking; see test_deferral.py for the composed behaviour.
+
+def test_no_floor_leaves_the_due_date_alone():
+    """The overwhelmingly common case: nothing was ever deferred."""
+    assert _effective_due(date(2026, 9, 5), None) == date(2026, 9, 5)
+
+
+def test_a_floor_wins_over_a_date_pushed_past_it():
+    assert _effective_due(date(2026, 9, 5), date(2026, 8, 24)) == date(2026, 8, 24)
+
+
+def test_a_floor_stands_in_for_a_cleared_due_date():
+    """Clearing the date is an open-ended deferral, not an escape."""
+    assert _effective_due(None, date(2026, 8, 24)) == date(2026, 8, 24)
+
+
+def test_the_earlier_date_wins_even_when_it_is_the_current_one():
+    """A date pulled back in front of its own floor is judged on the pulled-back date."""
+    assert _effective_due(date(2026, 8, 20), date(2026, 8, 24)) == date(2026, 8, 20)
+
+
+def test_an_undeferred_undated_item_has_no_effective_due_date():
+    assert _effective_due(None, None) is None

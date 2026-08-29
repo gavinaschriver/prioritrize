@@ -3,6 +3,7 @@ import { useCompleteTodo, useUpdateTodo } from "../../hooks/useTodos";
 import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
 import { EditableComment } from "./EditableComment";
 import { ConvertTodoToTask } from "../shared/ConvertTodoToTask";
+import { DeferredBadge } from "../shared/DeferredBadge";
 import type { TodoSummary } from "../../types";
 
 interface TodoRowProps {
@@ -31,7 +32,10 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
     : score > 0
       ? "text-green-600"
       : "text-red-600";
-  const rowBg = urgencyRowClass(item.due_date, viewedDate);
+  // Coloured by the date this day is actually scored against, which is the item's
+  // own due date except on days a deferral pushed out from under. Those days keep
+  // the urgency they really had, so the row can't sit calm and green while docking.
+  const rowBg = urgencyRowClass(item.effective_due_date, viewedDate);
 
   const addedDate = new Date(item.created_at).toLocaleDateString(undefined, {
     month: "short",
@@ -136,6 +140,9 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
       <div className="flex items-start gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm wrap-break-word">{item.name}</span>
+          {item.deferred && (
+            <DeferredBadge effectiveDueDate={item.effective_due_date} />
+          )}
         </div>
         <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-400 pt-0.5">
           {dueLabel ?? "—"}

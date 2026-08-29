@@ -12,7 +12,9 @@ from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, Todo
 #   1 — original. An overdue item's penalty was forgiven once it was completed on
 #       a later day, so past days could never be recomputed to their stored value.
 #   2 — the overdue penalty belongs to the day and survives a later completion.
-SCORING_VERSION = 2
+#   3 — deferring a due-or-overdue item leaves a floor, so the days it was
+#       already docking keep their penalty even once the due date has moved on.
+SCORING_VERSION = 3
 
 # Upper bound on how many days one backfill will compute, so a long-dormant
 # account can't turn a single page load into hundreds of scoring passes.
@@ -23,6 +25,21 @@ logger = logging.getLogger(__name__)
 
 def to_uuid(user_id: str) -> UUID:
     return UUID(user_id) if isinstance(user_id, str) else user_id
+
+
+def _effective_due(current_due: date_cls | None, floor_due: date_cls | None) -> date_cls | None:
+    """The due date an item is judged against on a given day.
+
+    Deferring an item that was already due or overdue leaves a floor: the date it
+    held before the deferral. Scoring against the earlier of the two is what keeps
+    the days it had already been docking, so pushing a date forward can no longer
+    refund them. Days after the deferral see no floor and answer to the new date.
+    """
+    if floor_due is None:
+        return current_due
+    if current_due is None:
+        return floor_due
+    return min(current_due, floor_due)
 
 
 def _deadline_score(point_value: int | None, due_date: date_cls | None, date_obj: date_cls, completed_at, start_utc, end_utc):
@@ -49,11 +66,38 @@ def _deadline_score(point_value: int | None, due_date: date_cls | None, date_obj
     return -pv, False
 
 
+async def fetch_due_floors(
+    user_id: str, date_obj: date_cls, conn: asyncpg.Connection
+) -> dict[tuple[str, UUID], date_cls]:
+    """Due-date floors in force on one day, keyed by (item_type, item_id).
+
+    A deferral recorded on or after the day being scored means the item still held
+    its earlier due date on that day, so that is what the day answers to — the
+    earliest of them, if it was deferred more than once, which is what makes a chain
+    of deferrals compose without any special casing. Deferrals recorded before the
+    day are already history: by then the item legitimately had its newer date.
+    """
+    uid = to_uuid(user_id)
+    rows = await conn.fetch(
+        """
+        SELECT item_type, item_id, MIN(previous_due_date) AS floor_due
+        FROM due_date_deferral
+        WHERE user_id = $1 AND deferred_on >= $2
+        GROUP BY item_type, item_id
+        """,
+        uid, date_obj,
+    )
+    return {(r["item_type"], r["item_id"]): r["floor_due"] for r in rows}
+
+
 async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection) -> DaySummary:
     """Compute the full day summary for a given date."""
     uid = to_uuid(user_id)
     start_utc, end_utc = get_day_boundaries_utc(date_str, tz_str)
     date_obj = date_cls.fromisoformat(date_str)
+    # Due dates items were still being judged against on this day despite having
+    # been deferred since. Empty for any day with no deferrals, which is most of them.
+    due_floors = await fetch_due_floors(user_id, date_obj, conn)
 
     # --- Goals & Bonuses ---
     rows = await conn.fetch(
@@ -140,13 +184,15 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         completed_at = t["completed_at"]
         if completed_at is not None and completed_at < start_utc:
             continue
+        effective_due = _effective_due(t["due_date"], due_floors.get(("todo", t["id"])))
         score, is_upcoming = _deadline_score(
-            t["point_value"], t["due_date"], date_obj, completed_at, start_utc, end_utc
+            t["point_value"], effective_due, date_obj, completed_at, start_utc, end_utc
         )
         todos.append(TodoSummary(
             id=t["id"], name=t["name"], point_value=t["point_value"],
             due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"],
             score=score, is_upcoming=is_upcoming, comment=t["comment"],
+            effective_due_date=effective_due,
         ))
     todos_subtotal = sum(t.score for t in todos)
 
@@ -171,8 +217,12 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         due_date = p["due_date"]
         completed_at = p["completed_at"]
         pv = p["point_value"]
+        # Resolved before the rolling branch: a project whose due date was cleared
+        # while it was overdue still owes those days, so it stays a deadline rather
+        # than quietly becoming rolling and never docking again.
+        effective_due = _effective_due(due_date, due_floors.get(("project", p["id"])))
 
-        if due_date is None:
+        if effective_due is None:
             # Rolling project — only scores if completed today
             if completed_at is not None and completed_at >= start_utc and completed_at < end_utc:
                 rolling.append(DeadlineSummary(
@@ -181,10 +231,11 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
                     point_value=pv, due_date=None, created_at=p["created_at"],
                     completed_at=completed_at,
                     score=Decimal(pv) if pv else Decimal(0), is_upcoming=False,
+                    effective_due_date=None,
                 ))
             # Kept out of the deadlines list — it has no due date to sort by
         else:
-            score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
+            score, is_upcoming = _deadline_score(pv, effective_due, date_obj, completed_at, start_utc, end_utc)
             if completed_at is not None and completed_at < start_utc:
                 continue  # already counted in a past day
             deadlines.append(DeadlineSummary(
@@ -192,6 +243,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
                 project_id=None, project_name=None,
                 point_value=pv, due_date=due_date, created_at=p["created_at"],
                 completed_at=completed_at, score=score, is_upcoming=is_upcoming,
+                effective_due_date=effective_due,
             ))
 
     # --- Project Tasks ---
@@ -214,8 +266,9 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         completed_at = t["completed_at"]
         pv = t["point_value"]
 
+        effective_due = _effective_due(due_date, due_floors.get(("task", t["id"])))
         # Undated tasks are listed too — they never dock, they just earn on completion
-        score, is_upcoming = _deadline_score(pv, due_date, date_obj, completed_at, start_utc, end_utc)
+        score, is_upcoming = _deadline_score(pv, effective_due, date_obj, completed_at, start_utc, end_utc)
         if completed_at is not None and completed_at < start_utc:
             continue
         deadlines.append(DeadlineSummary(
@@ -223,7 +276,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             project_id=t["project_id"], project_name=t["project_name"],
             point_value=pv, due_date=due_date, created_at=t["created_at"],
             completed_at=completed_at, score=score, is_upcoming=is_upcoming,
-            comment=t["comment"],
+            comment=t["comment"], effective_due_date=effective_due,
         ))
 
     # Sort combined deadlines by due_date ASC (overdue first, then upcoming, undated last)
@@ -274,7 +327,7 @@ def build_breakdown(summary: DaySummary) -> dict:
         }
 
     def item_line(i) -> dict:
-        return {
+        line = {
             "id": str(i.id),
             "name": i.name,
             "point_value": i.point_value,
@@ -282,11 +335,20 @@ def build_breakdown(summary: DaySummary) -> dict:
             "completed_at": i.completed_at.isoformat() if i.completed_at else None,
             "score": str(i.score),
         }
+        # Present only when the two differ, i.e. this day was scored against a due
+        # date the item no longer has because it was deferred out from under it.
+        # Otherwise a locked penalty looks like an unexplained dock on a future item.
+        if i.effective_due_date != i.due_date:
+            line["effective_due_date"] = (
+                i.effective_due_date.isoformat() if i.effective_due_date else None
+            )
+        return line
 
     return {
         # Shape of this document, independent of the scoring-semantics version
         # recorded in daily_snapshot.version.
-        "schema": 1,
+        #   2 — item lines may carry effective_due_date.
+        "schema": 2,
         "date": summary.date,
         "timezone": summary.timezone,
         "subtotals": {
@@ -482,6 +544,55 @@ async def rescore_from(
     for day in days:
         await upsert_snapshot(user_id, day.isoformat(), tz_str, conn, force=True)
     return days
+
+
+async def record_deferral(
+    conn: asyncpg.Connection,
+    user_id: str,
+    item_type: str,
+    item_id: UUID,
+    before_row,
+    new_due: date_type | None,
+    tz_str: str,
+) -> bool:
+    """Log a procrastination event, if that is what this due-date change was.
+
+    Only a deferral qualifies: the item was still open, was already due or overdue,
+    and its date moved later or was cleared outright. Clearing it is the open-ended
+    version of the same choice — the delay was taken either way, the user is just
+    not naming a new date — so it locks the penalty too.
+
+    Deleting an item is deliberately not a deferral. That is a "won't do": the work
+    stopped existing rather than being put off, and no delay was bought.
+
+    Pulling a date earlier, dating something that never had a due date, and editing
+    one that is not due yet are all left alone — none of them avoids work already owed.
+
+    Must be called before rescore_from, or the rescore recomputes those days without
+    the floor and erases the very penalty this is recording.
+    """
+    previous_due = before_row["due_date"]
+    if before_row["completed_at"] is not None or previous_due is None:
+        return False
+    today = date_type.fromisoformat(get_today_str(tz_str))
+    if previous_due > today:
+        return False
+    if new_due is not None and new_due <= previous_due:
+        return False
+
+    await conn.execute(
+        """
+        INSERT INTO due_date_deferral
+            (user_id, item_type, item_id, previous_due_date, new_due_date, deferred_on)
+        VALUES ($1, $2, $3, $4, $5, $6)
+        """,
+        to_uuid(user_id), item_type, item_id, previous_due, new_due, today,
+    )
+    logger.info(
+        "deferral: user %s moved %s %s from %s to %s on %s",
+        user_id, item_type, item_id, previous_due, new_due, today,
+    )
+    return True
 
 
 def _loaded_breakdown(value) -> dict | None:

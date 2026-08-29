@@ -73,6 +73,11 @@ export interface TodoSummary {
   score: number;
   is_upcoming: boolean;
   comment: string | null;
+  // The due date this day was actually scored against; differs from due_date only
+  // when the item was deferred out from under this day.
+  effective_due_date: string | null;
+  // This day's dock is owed to that deferral, not to the item's current due date.
+  deferred: boolean;
 }
 
 export interface Project {
@@ -126,6 +131,11 @@ export interface DeadlineSummary {
   score: number;
   is_upcoming: boolean;
   comment: string | null;
+  // The due date this day was actually scored against; differs from due_date only
+  // when the item was deferred out from under this day.
+  effective_due_date: string | null;
+  // This day's dock is owed to that deferral, not to the item's current due date.
+  deferred: boolean;
 }
 
 export interface DaySummary {
