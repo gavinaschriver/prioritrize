@@ -9,8 +9,8 @@ export function PrioritryList({ onEdit }: PrioritryListProps) {
   const { data: prioritries, isLoading } = usePrioritries();
   const deletePrioritry = useDeletePrioritry();
 
-  if (isLoading) return <p className="text-gray-400 text-sm">Loading...</p>;
-  if (!prioritries?.length) return <p className="text-gray-400 text-sm">No PrioriTries yet. Add one above.</p>;
+  if (isLoading) return <p className="text-gray-500 text-sm">Loading...</p>;
+  if (!prioritries?.length) return <p className="text-gray-500 text-sm">No PrioriTries yet. Add one above.</p>;
 
   const goals = prioritries.filter(p => p.type_name === 'Goal');
   const bonuses = prioritries.filter(p => p.type_name === 'Bonus');
@@ -19,7 +19,7 @@ export function PrioritryList({ onEdit }: PrioritryListProps) {
     <div key={p.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
       <div className="flex-1 min-w-0">
         <span className="text-sm font-medium">{p.name}</span>
-        <span className="ml-2 text-xs text-gray-400">
+        <span className="ml-2 text-xs text-gray-500">
           {p.point_value} pts
           {p.timeblock && ` / ${p.timeblock} min`}
           {p.can_repeat && ' / repeatable'}

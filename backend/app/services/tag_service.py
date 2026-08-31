@@ -3,13 +3,15 @@ from app.models.tag import TagSuggestion
 from app.services.entry_service import to_uuid
 
 
-# todo.comment and project_task.comment are never exploded into a tag table —
-# their tags live only inside the raw string, so they get parsed here. The
-# unnest/string_to_array shape is the one proven by the entry_tag backfill in
-# 20260421000000_add_entry_tags.sql.
+# Todo and project_task tags are never exploded into a tag table — they live
+# only inside the raw strings, so they get parsed here. Both text fields are
+# scanned: the pre-split tags all sit in `description` now, and either field can
+# pick up new ones. concat_ws skips NULLs, so a row with only one of them set
+# still works. The unnest/string_to_array shape is the one proven by the
+# entry_tag backfill in 20260421000000_add_entry_tags.sql.
 #
 # This is slightly looser than entry_service.parse_tags(), which stops at the
-# first non-'#' segment; SQL accepts a '#part' anywhere in the comment. For a
+# first non-'#' segment; SQL accepts a '#part' anywhere in the text. For a
 # suggestion list that's harmless — it only ever offers more candidates.
 _LIST_TAGS_SQL = """
 WITH all_tags AS (
@@ -19,14 +21,16 @@ WITH all_tags AS (
     UNION ALL
     SELECT trim(substr(p.part, 2))
     FROM todo t
-    CROSS JOIN LATERAL unnest(string_to_array(t.comment, ', ')) AS p(part)
-    WHERE t.user_id = $1 AND t.comment IS NOT NULL
+    CROSS JOIN LATERAL unnest(string_to_array(
+        concat_ws(', ', t.description, t.comment), ', ')) AS p(part)
+    WHERE t.user_id = $1
       AND p.part LIKE '#%' AND length(trim(substr(p.part, 2))) > 0
     UNION ALL
     SELECT trim(substr(p.part, 2))
     FROM project_task pt
-    CROSS JOIN LATERAL unnest(string_to_array(pt.comment, ', ')) AS p(part)
-    WHERE pt.user_id = $1 AND pt.comment IS NOT NULL
+    CROSS JOIN LATERAL unnest(string_to_array(
+        concat_ws(', ', pt.description, pt.comment), ', ')) AS p(part)
+    WHERE pt.user_id = $1
       AND p.part LIKE '#%' AND length(trim(substr(p.part, 2))) > 0
 )
 SELECT tag, COUNT(*) AS count

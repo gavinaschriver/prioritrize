@@ -25,7 +25,7 @@ async def _rescore_for(conn, user_id, tz_str, *rows):
     await rescore_from(user_id, start, tz_str, conn)
 
 
-_COLS = "id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+_COLS = "id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
 
 
 async def list_todos(conn: asyncpg.Connection, user_id: str) -> list[TodoOut]:
@@ -41,11 +41,11 @@ async def create_todo(conn: asyncpg.Connection, user_id: str, data: TodoCreate) 
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
         f"""
-        INSERT INTO todo (user_id, name, point_value, due_date, comment)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO todo (user_id, name, point_value, due_date, description, comment)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING {_COLS}
         """,
-        uid, data.name, data.point_value, data.due_date, data.comment,
+        uid, data.name, data.point_value, data.due_date, data.description, data.comment,
     )
     return TodoOut(**dict(row))
 
@@ -133,14 +133,15 @@ async def delete_todo(
     return {"deleted": True}
 
 
-_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
 
 
 async def convert_to_task(
     conn: asyncpg.Connection, todo_id: UUID, user_id: str, project_id: UUID
 ) -> ProjectTaskOut:
     """Move a todo into a project. Same row, different table: name, points, due date,
-    comment, completion state and original created_at all carry over. The id does not."""
+    description, comment, completion state and original created_at all carry over.
+    The id does not."""
     uid = to_uuid(user_id)
     todo = await conn.fetchrow(
         f"SELECT {_COLS} FROM todo WHERE id = $1 AND user_id = $2",
@@ -160,12 +161,12 @@ async def convert_to_task(
         task = await conn.fetchrow(
             f"""
             INSERT INTO project_task
-                (project_id, user_id, name, point_value, due_date, comment, completed_at, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                (project_id, user_id, name, point_value, due_date, description, comment, completed_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
             RETURNING {_TASK_COLS}
             """,
             project_id, uid, todo["name"], todo["point_value"], todo["due_date"],
-            todo["comment"], todo["completed_at"], todo["created_at"],
+            todo["description"], todo["comment"], todo["completed_at"], todo["created_at"],
         )
         await conn.execute("DELETE FROM todo WHERE id = $1", todo_id)
 

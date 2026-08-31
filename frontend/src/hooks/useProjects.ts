@@ -80,6 +80,33 @@ export function useDeleteProject() {
   });
 }
 
+export function useReorderProjects() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (ids: string[]) => api.post('/api/projects/reorder', { ids }),
+    // Applied optimistically so the row stays where it was dropped instead of
+    // snapping back to the old order until the refetch lands.
+    onMutate: async (ids) => {
+      await queryClient.cancelQueries({ queryKey: ['projects'] });
+      const previous = queryClient.getQueryData<Project[]>(['projects']);
+      if (previous) {
+        const byId = new Map(previous.map(p => [p.id, p]));
+        queryClient.setQueryData<Project[]>(
+          ['projects'],
+          ids.map(id => byId.get(id)).filter((p): p is Project => !!p),
+        );
+      }
+      return { previous };
+    },
+    onError: (_err, _ids, context) => {
+      if (context?.previous) queryClient.setQueryData(['projects'], context.previous);
+    },
+    onSettled: () => {
+      queryClient.invalidateQueries({ queryKey: ['projects'] });
+    },
+  });
+}
+
 export function useAddProjectUpdate(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
@@ -118,7 +145,7 @@ export function useDeleteProjectUpdate(projectId: string) {
 export function useCreateProjectTask(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; point_value?: number; due_date?: string | null; comment?: string | null }): Promise<ProjectTask> =>
+    mutationFn: (data: { name: string; point_value?: number; due_date?: string | null; description?: string | null; comment?: string | null }): Promise<ProjectTask> =>
       api.post(`/api/projects/${projectId}/tasks`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });
@@ -131,7 +158,7 @@ export function useCreateProjectTask(projectId: string) {
 export function useUpdateProjectTask(projectId: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ taskId, data }: { taskId: string; data: { name?: string; point_value?: number; due_date?: string | null; comment?: string | null } }): Promise<ProjectTask> =>
+    mutationFn: ({ taskId, data }: { taskId: string; data: { name?: string; point_value?: number; due_date?: string | null; description?: string | null; comment?: string | null } }): Promise<ProjectTask> =>
       api.put(`/api/projects/${projectId}/tasks/${taskId}`, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['project', projectId] });

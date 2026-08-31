@@ -37,8 +37,14 @@ def scored(monkeypatch):
     """Make upsert_snapshot return a fixed new score without touching a database."""
 
     def _set(score):
-        async def fake_upsert(user_id, date_str, tz_str, conn, force=False):
+        async def fake_upsert(
+            user_id, date_str, tz_str, conn, force=False, allow_legacy=False
+        ):
             assert force is True, "recompute must be able to overwrite a finalized day"
+            # Every other caller is blocked from version 1 days, because rescoring one
+            # measures it against inputs that have since been edited away. This is the
+            # one path where a human asked for it and gets both breakdowns back.
+            assert allow_legacy is True, "recompute must reach legacy days"
             return Decimal(score)
 
         monkeypatch.setattr(scoring_service, "upsert_snapshot", fake_upsert)

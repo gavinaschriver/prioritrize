@@ -55,7 +55,7 @@ export function ScratchPad() {
         {!editing && (
           <button
             onClick={handleEdit}
-            className="text-xs text-gray-400 hover:text-blue-600"
+            className="text-xs text-gray-500 hover:text-blue-600"
           >
             {isEmpty ? '+ write' : 'edit'}
           </button>
@@ -75,7 +75,7 @@ export function ScratchPad() {
               }}
               onKeyDown={handleKeyDown}
               placeholder={"# Ideas\n\n[ ] thing to try\n[ ] another idea\n\n**bold**, *italic*, ~~strikethrough~~"}
-              className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-300 min-h-[120px]"
+              className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-500 min-h-[120px]"
               rows={6}
             />
             <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
@@ -92,15 +92,15 @@ export function ScratchPad() {
               >
                 Cancel
               </button>
-              <span className="text-xs text-gray-300 ml-auto">⌘↵ to save · Esc to cancel</span>
+              <span className="text-xs text-gray-500 ml-auto">⌘↵ to save · Esc to cancel</span>
             </div>
           </div>
         ) : isLoading ? (
-          <p className="px-4 py-3 text-sm text-gray-400">Loading...</p>
+          <p className="px-4 py-3 text-sm text-gray-500">Loading...</p>
         ) : isEmpty ? (
           <button
             onClick={handleEdit}
-            className="w-full px-4 py-6 text-sm text-gray-300 text-left hover:bg-gray-50 rounded-lg transition"
+            className="w-full px-4 py-6 text-sm text-gray-500 text-left hover:bg-gray-50 rounded-lg transition"
           >
             Click to start writing — ideas, notes, anything...
           </button>
@@ -115,7 +115,7 @@ export function ScratchPad() {
       </div>
 
       {!editing && data?.updated_at && !isEmpty && (
-        <p className="text-xs text-gray-300 mt-1 text-right">
+        <p className="text-xs text-gray-500 mt-1 text-right">
           saved {new Date(data.updated_at).toLocaleString(undefined, { dateStyle: 'short', timeStyle: 'short' })}
         </p>
       )}

@@ -4,7 +4,7 @@ import asyncpg
 from app.auth import get_current_user
 from app.database import get_conn
 from app.models.project import (
-    ProjectCreate, ProjectUpdate, ProjectUpdateCreate,
+    ProjectCreate, ProjectUpdate, ProjectUpdateCreate, ProjectReorder,
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
@@ -30,6 +30,15 @@ async def create_project(
     conn: asyncpg.Connection = Depends(get_conn),
 ):
     return await project_service.create_project(conn, user["id"], data)
+
+
+@router.post("/reorder", response_model=list[ProjectOut])
+async def reorder_projects(
+    data: ProjectReorder,
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await project_service.reorder_projects(conn, user["id"], data.ids)
 
 
 @router.get("/{project_id}", response_model=ProjectDetailOut)

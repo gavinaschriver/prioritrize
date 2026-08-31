@@ -10,7 +10,7 @@ function parseInline(text: string): React.ReactNode {
         if (part.startsWith('**') && part.endsWith('**'))
           return <strong key={i}>{part.slice(2, -2)}</strong>;
         if (part.startsWith('~~') && part.endsWith('~~'))
-          return <s key={i} className="text-gray-400">{part.slice(2, -2)}</s>;
+          return <s key={i} className="text-gray-500">{part.slice(2, -2)}</s>;
         if (part.startsWith('*') && part.endsWith('*'))
           return <em key={i}>{part.slice(1, -1)}</em>;
         return <span key={i}>{part}</span>;
@@ -62,7 +62,7 @@ export function MarkdownRenderer({ text, onCheckboxToggle, className }: Markdown
                 disabled={!onCheckboxToggle}
                 className="mt-0.5 shrink-0"
               />
-              <span className={`text-sm ${checked ? 'line-through text-gray-400' : 'text-gray-700'}`}>
+              <span className={`text-sm ${checked ? 'line-through text-gray-500' : 'text-gray-700'}`}>
                 {parseInline(label)}
               </span>
             </label>
@@ -73,7 +73,7 @@ export function MarkdownRenderer({ text, onCheckboxToggle, className }: Markdown
         if (/^[-*] /.test(line))
           return (
             <div key={i} className="flex items-start gap-2">
-              <span className="text-gray-400 mt-0.5 shrink-0 text-xs">•</span>
+              <span className="text-gray-500 mt-0.5 shrink-0 text-xs">•</span>
               <p className="text-sm text-gray-700">{parseInline(line.slice(2))}</p>
             </div>
           );

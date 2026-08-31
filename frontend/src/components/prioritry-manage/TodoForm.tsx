@@ -6,7 +6,7 @@ export function TodoForm() {
   const [name, setName] = useState('');
   const [pointValue, setPointValue] = useState('5');
   const [dueDate, setDueDate] = useState('');
-  const [comment, setComment] = useState('');
+  const [description, setDescription] = useState('');
   const [error, setError] = useState('');
 
   const createTodo = useCreateTodo();
@@ -26,12 +26,12 @@ export function TodoForm() {
         name,
         point_value: parsed,
         due_date: dueDate || null,
-        comment: comment.trim() || null,
+        description: description.trim() || null,
       });
       setName('');
       setPointValue('5');
       setDueDate('');
-      setComment('');
+      setDescription('');
     } catch (err: any) {
       setError(err.message);
     }
@@ -53,7 +53,7 @@ export function TodoForm() {
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(0 = reminder)</span></label>
+          <label className="text-xs text-gray-500">Point Value <span className="text-gray-500">(0 = reminder)</span></label>
           <input
             type="number"
             min={0}
@@ -63,7 +63,7 @@ export function TodoForm() {
           />
         </div>
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
+          <label className="text-xs text-gray-500">Due Date <span className="text-gray-500">(optional)</span></label>
           <input
             type="date"
             value={dueDate}
@@ -74,8 +74,13 @@ export function TodoForm() {
       </div>
 
       <div>
-        <label className="text-xs text-gray-500">Comment <span className="text-gray-300">(optional, editable later)</span></label>
-        <TagCommentInput value={comment} onChange={setComment} className="mt-1" />
+        <label className="text-xs text-gray-500">Description <span className="text-gray-500">(optional, editable later)</span></label>
+        <TagCommentInput
+          value={description}
+          onChange={setDescription}
+          placeholder="What to do, notes on how, or #tag,"
+          className="mt-1"
+        />
       </div>
 
       <button

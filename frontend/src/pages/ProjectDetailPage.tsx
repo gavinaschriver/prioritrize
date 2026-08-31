@@ -8,7 +8,7 @@ import {
 import type { ProjectTask } from '../types';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
-import { EditableComment } from '../components/day-tracker/EditableComment';
+import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
 import { formatDueDate } from '../lib/urgency';
 import { ConvertTaskToTodo } from '../components/shared/ConvertTaskToTodo';
 
@@ -47,14 +47,14 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
   return (
     <div className={`px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
       <div className="flex items-center gap-2">
-      <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-400' : 'text-gray-800'}`}>{task.name}</span>
-      <span className="text-xs text-gray-400 shrink-0">
+      <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-500' : 'text-gray-800'}`}>{task.name}</span>
+      <span className="text-xs text-gray-500 shrink-0">
         {task.due_date ? `due ${formatDueDate(task.due_date)}` : 'no due date'}
       </span>
-      {task.point_value > 0 && <span className="text-xs text-gray-400 font-mono shrink-0">{task.point_value}pts</span>}
+      {task.point_value > 0 && <span className="text-xs text-gray-500 font-mono shrink-0">{task.point_value}pts</span>}
       <ConvertTaskToTodo projectId={projectId} taskId={task.id} />
       {!task.completed_at && (
-        <button onClick={() => setEditing(true)} className="text-gray-300 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
+        <button onClick={() => setEditing(true)} className="text-gray-500 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
       )}
       {!task.completed_at && (
         <button onClick={() => completeTask.mutate(task.id)} disabled={completeTask.isPending}
@@ -64,9 +64,11 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
       <button onClick={() => deleteTask.mutate(task.id)} disabled={deleteTask.isPending}
         className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0" title="Delete">✕</button>
       </div>
-      <EditableComment
-        value={task.comment}
-        onSave={comment => updateTask.mutate({ taskId: task.id, data: { comment } })}
+      <DescriptionAndComment
+        description={task.description}
+        comment={task.comment}
+        onSaveDescription={description => updateTask.mutate({ taskId: task.id, data: { description } })}
+        onSaveComment={comment => updateTask.mutate({ taskId: task.id, data: { comment } })}
       />
     </div>
   );
@@ -105,7 +107,7 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
   const [taskName, setTaskName] = useState('');
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
-  const [taskComment, setTaskComment] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
   const createTask = useCreateProjectTask(projectId);
 
   const handleAdd = async (e: React.FormEvent) => {
@@ -116,9 +118,9 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
       name: taskName,
       point_value: isNaN(pv) ? 0 : pv,
       due_date: taskDue || null,
-      comment: taskComment.trim() || null,
+      description: taskDescription.trim() || null,
     });
-    setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskComment('');
+    setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskDescription('');
   };
 
   return (
@@ -133,13 +135,13 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
                 ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
                 : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
             )}
-            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-400'}`}
+            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-500'}`}
           >
             {field === 'due_date' ? 'due' : 'added'} {sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓'}
           </button>
         ))}
       </div>
-      {tasks.length === 0 && <p className="text-sm text-gray-400 mb-3">No tasks yet.</p>}
+      {tasks.length === 0 && <p className="text-sm text-gray-500 mb-3">No tasks yet.</p>}
       <div className="space-y-1 mb-3">
         {sortTasks(tasks, sort.field, sort.dir).map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
       </div>
@@ -173,9 +175,9 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
           >Add</button>
         </div>
         <TagCommentInput
-          value={taskComment}
-          onChange={setTaskComment}
-          placeholder="Comment or #tag, (optional)"
+          value={taskDescription}
+          onChange={setTaskDescription}
+          placeholder="Description — what to do, or #tag, (optional)"
         />
       </form>
     </div>
@@ -231,7 +233,7 @@ function UpdateEntry({
     <div className="bg-white rounded-lg border border-gray-200 p-3 group">
       <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.body}</p>
       <div className="flex items-center justify-between mt-1">
-        <p className="text-xs text-gray-400">{formatDate(update.created_at)}</p>
+        <p className="text-xs text-gray-500">{formatDate(update.created_at)}</p>
         <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
           <button onClick={() => setEditing(true)} className="text-xs text-blue-500 hover:underline">
             Edit
@@ -276,7 +278,7 @@ export function ProjectDetailPage() {
     }
   }, [project]);
 
-  if (isLoading) return <p className="text-gray-400 text-sm text-center py-8">Loading...</p>;
+  if (isLoading) return <p className="text-gray-500 text-sm text-center py-8">Loading...</p>;
   if (!project) return <p className="text-red-600 text-sm text-center py-8">Project not found.</p>;
 
   const handleSave = async (e: React.FormEvent) => {
@@ -367,7 +369,7 @@ export function ProjectDetailPage() {
 
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(optional)</span></label>
+                <label className="text-xs text-gray-500">Point Value <span className="text-gray-500">(optional)</span></label>
                 <input
                   type="number"
                   min={0}
@@ -378,7 +380,7 @@ export function ProjectDetailPage() {
                 />
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
+                <label className="text-xs text-gray-500">Due Date <span className="text-gray-500">(optional)</span></label>
                 <input
                   type="date"
                   value={dueDate}
@@ -422,11 +424,11 @@ export function ProjectDetailPage() {
             <div className="flex gap-4 text-sm text-gray-500 flex-wrap">
               {project.point_value != null
                 ? <span>{project.point_value} pts</span>
-                : <span className="text-gray-300 italic">no point value</span>
+                : <span className="text-gray-500 italic">no point value</span>
               }
               {project.due_date
                 ? <span>due {project.due_date}</span>
-                : <span className="text-gray-300 italic">rolling (no due date)</span>
+                : <span className="text-gray-500 italic">rolling (no due date)</span>
               }
               {project.completed_at && <span className="text-green-600">✓ completed</span>}
             </div>
@@ -434,7 +436,7 @@ export function ProjectDetailPage() {
             {project.overview ? (
               <MarkdownRenderer text={project.overview} onCheckboxToggle={handleCheckboxToggle} className="space-y-1" />
             ) : (
-              <p className="text-sm text-gray-400 italic">No overview yet. Click Edit to add one.</p>
+              <p className="text-sm text-gray-500 italic">No overview yet. Click Edit to add one.</p>
             )}
 
             <div className="flex gap-2 pt-1 flex-wrap">
@@ -457,7 +459,7 @@ export function ProjectDetailPage() {
         <h2 className="text-lg font-bold text-gray-800 mb-4">Updates</h2>
 
         {project.updates.length === 0 && (
-          <p className="text-sm text-gray-400 mb-4">No updates yet.</p>
+          <p className="text-sm text-gray-500 mb-4">No updates yet.</p>
         )}
 
         <div className="space-y-3 mb-4">

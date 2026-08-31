@@ -79,7 +79,7 @@ export function DeadlinesSection({
       </div>
       {open && (
         <>
-          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-500 font-medium px-0 mb-1">
             <div className="flex-1 min-w-0">Name</div>
             <button
               onClick={() => toggleSort("due_date")}
@@ -104,7 +104,7 @@ export function DeadlinesSection({
           </div>
 
           {pending.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">
+            <p className="text-sm text-gray-500 py-2">
               Nothing left in the queue. Add projects or tasks to fill it.
             </p>
           )}

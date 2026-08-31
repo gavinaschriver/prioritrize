@@ -5,10 +5,18 @@ interface EditableCommentProps {
   value: string | null;
   onSave: (comment: string | null) => void;
   placeholder?: string;
+  emptyLabel?: string;
+  editTitle?: string;
 }
 
 /** Click-to-edit comment, shared by daily entries, todos and project tasks. */
-export function EditableComment({ value, onSave, placeholder = 'Add a comment or #tag,' }: EditableCommentProps) {
+export function EditableComment({
+  value,
+  onSave,
+  placeholder = 'Add a comment or #tag,',
+  emptyLabel,
+  editTitle,
+}: EditableCommentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
 
@@ -42,6 +50,8 @@ export function EditableComment({ value, onSave, placeholder = 'Add a comment or
   return (
     <CommentDisplay
       value={value}
+      emptyLabel={emptyLabel}
+      editTitle={editTitle}
       onClick={() => {
         setDraft(value ?? '');
         setIsEditing(true);

@@ -41,7 +41,7 @@ export function SpendingInput({ selectedDate }: SpendingInputProps) {
           Spending:
         </span>
         <div className="flex items-center flex-1 px-2 py-1 border border-gray-200 rounded bg-white focus-within:ring-1 focus-within:ring-blue-400">
-          <span className="text-sm text-gray-400 mr-1">$</span>
+          <span className="text-sm text-gray-500 mr-1">$</span>
           <input
             type="text"
             inputMode="decimal"

@@ -68,7 +68,7 @@ export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSection
       </div>
       {open && (
         <>
-          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-500 font-medium px-0 mb-1">
             <div className="flex-1 min-w-0">Name</div>
             <button
               onClick={() => toggleSort("due_date")}
@@ -92,7 +92,7 @@ export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSection
             <div className="w-10 sm:w-14 text-right shrink-0">Score</div>
           </div>
           {pending.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">
+            <p className="text-sm text-gray-500 py-2">
               Nothing left in the queue.
             </p>
           )}

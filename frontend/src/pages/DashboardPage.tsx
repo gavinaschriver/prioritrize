@@ -30,7 +30,7 @@ function SortButton({ dir, onToggle }: { dir: SortDir; onToggle: () => void }) {
   return (
     <button
       onClick={onToggle}
-      className="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
+      className="text-xs text-gray-500 hover:text-gray-600 flex items-center gap-0.5 transition-colors"
       title={dir === 'desc' ? 'Sorted high → low (click to reverse)' : 'Sorted low → high (click to reverse)'}
     >
       {dir === 'desc' ? '↓' : '↑'}
@@ -61,9 +61,9 @@ function HabitRow({ stat, days }: { stat: PrioritryStats; days: number }) {
             {stat.total_minutes! > 0 ? formatMinutes(stat.total_minutes!) : '—'}
           </span>
         ) : (
-          <span className={`text-sm font-medium ${stat.entry_count > 0 ? 'text-gray-800' : 'text-gray-400'}`}>
+          <span className={`text-sm font-medium ${stat.entry_count > 0 ? 'text-gray-800' : 'text-gray-500'}`}>
             {stat.entry_count}
-            <span className="text-xs text-gray-400 font-normal ml-1">/ {days}</span>
+            <span className="text-xs text-gray-500 font-normal ml-1">/ {days}</span>
           </span>
         )}
       </div>
@@ -139,7 +139,7 @@ export function DashboardPage() {
         {start} — {today}
       </p>
 
-      {isLoading && <p className="text-gray-400 text-sm text-center py-8">Loading...</p>}
+      {isLoading && <p className="text-gray-500 text-sm text-center py-8">Loading...</p>}
       {error && <p className="text-red-600 text-sm text-center py-4">{(error as Error).message}</p>}
 
       {data && (
@@ -198,7 +198,7 @@ export function DashboardPage() {
               Todos Completed
             </h2>
             {completedTodos.length === 0 ? (
-              <p className="text-sm text-gray-400">None completed in this range.</p>
+              <p className="text-sm text-gray-500">None completed in this range.</p>
             ) : (
               <div className="bg-white rounded-lg border border-gray-200 px-4 divide-y divide-gray-100">
                 {completedTodos.map(todo => (

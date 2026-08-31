@@ -17,7 +17,7 @@ export function ConvertTodoToTask({ todoId }: ConvertTodoToTaskProps) {
       <button
         onClick={e => { e.stopPropagation(); setPicking(true); }}
         disabled={convert.isPending}
-        className="shrink-0 text-xs text-gray-300 hover:text-blue-500 disabled:opacity-50"
+        className="shrink-0 text-xs text-gray-500 hover:text-blue-500 disabled:opacity-50"
         title="Move this todo into a project"
       >
         convert to task

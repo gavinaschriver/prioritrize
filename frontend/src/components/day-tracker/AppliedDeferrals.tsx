@@ -29,7 +29,7 @@ export function AppliedDeferrals({ summary }: AppliedDeferralsProps) {
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
           Applied Deferrals
         </h3>
-        <span className="text-xs text-gray-400">already counted above</span>
+        <span className="text-xs text-gray-500">already counted above</span>
       </div>
       <div className="space-y-1">
         {items.map((item) => (

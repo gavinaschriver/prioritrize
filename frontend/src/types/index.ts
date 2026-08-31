@@ -57,6 +57,9 @@ export interface Todo {
   name: string;
   point_value: number;
   due_date: string | null;
+  /** What to accomplish and how. */
+  description: string | null;
+  /** How the doing of it actually went. */
   comment: string | null;
   completed_at: string | null;
   created_at: string;
@@ -72,6 +75,9 @@ export interface TodoSummary {
   created_at: string;
   score: number;
   is_upcoming: boolean;
+  /** What to accomplish and how. */
+  description: string | null;
+  /** How the doing of it actually went. */
   comment: string | null;
   // The due date this day was actually scored against; differs from due_date only
   // when the item was deferred out from under this day.
@@ -87,6 +93,8 @@ export interface Project {
   point_value: number | null;
   due_date: string | null;
   overview: string | null;
+  /** Manual position on the Projects page, low to high. */
+  sort_order: number;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -107,6 +115,9 @@ export interface ProjectTask {
   name: string;
   point_value: number;
   due_date: string | null;
+  /** What to accomplish and how. */
+  description: string | null;
+  /** How the doing of it actually went. */
   comment: string | null;
   completed_at: string | null;
   created_at: string;
@@ -130,6 +141,9 @@ export interface DeadlineSummary {
   completed_at: string | null;
   score: number;
   is_upcoming: boolean;
+  /** What to accomplish and how. */
+  description: string | null;
+  /** How the doing of it actually went. */
   comment: string | null;
   // The due date this day was actually scored against; differs from due_date only
   // when the item was deferred out from under this day.

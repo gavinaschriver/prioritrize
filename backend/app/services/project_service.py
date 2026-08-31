@@ -28,17 +28,18 @@ async def _rescore_for(conn, user_id, tz_str, *rows):
     await rescore_from(user_id, start, tz_str, conn)
 
 
-_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+_PROJECT_COLS = "id, user_id, name, point_value, due_date, overview, sort_order, completed_at, created_at, updated_at"
+_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
 
 
 async def list_projects(conn: asyncpg.Connection, user_id: str) -> list[ProjectOut]:
     uid = to_uuid(user_id)
     rows = await conn.fetch(
-        """
-        SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        f"""
+        SELECT {_PROJECT_COLS}
         FROM project
         WHERE user_id = $1
-        ORDER BY due_date ASC NULLS LAST, created_at ASC
+        ORDER BY sort_order ASC, created_at ASC
         """,
         uid,
     )
@@ -48,8 +49,8 @@ async def list_projects(conn: asyncpg.Connection, user_id: str) -> list[ProjectO
 async def get_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) -> ProjectDetailOut:
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
-        """
-        SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        f"""
+        SELECT {_PROJECT_COLS}
         FROM project
         WHERE id = $1 AND user_id = $2
         """,
@@ -84,10 +85,11 @@ async def get_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) 
 async def create_project(conn: asyncpg.Connection, user_id: str, data: ProjectCreate) -> ProjectOut:
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
-        """
-        INSERT INTO project (user_id, name, point_value, due_date, overview)
-        VALUES ($1, $2, $3, $4, $5)
-        RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        f"""
+        INSERT INTO project (user_id, name, point_value, due_date, overview, sort_order)
+        VALUES ($1, $2, $3, $4, $5,
+                COALESCE((SELECT MAX(sort_order) + 1 FROM project WHERE user_id = $1), 0))
+        RETURNING {_PROJECT_COLS}
         """,
         uid, data.name, data.point_value, data.due_date, data.overview,
     )
@@ -97,7 +99,7 @@ async def create_project(conn: asyncpg.Connection, user_id: str, data: ProjectCr
 async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: str, data: ProjectUpdate, tz_str: str = "UTC") -> ProjectOut:
     uid = to_uuid(user_id)
     before = await conn.fetchrow(
-        "SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at FROM project WHERE id = $1 AND user_id = $2",
+        f"SELECT {_PROJECT_COLS} FROM project WHERE id = $1 AND user_id = $2",
         project_id, uid,
     )
     if not before:
@@ -108,7 +110,7 @@ async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: st
     updates = {k: v for k, v in data.model_dump(exclude_unset=True).items()}
     if not updates:
         row = await conn.fetchrow(
-            "SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at FROM project WHERE id = $1",
+            f"SELECT {_PROJECT_COLS} FROM project WHERE id = $1",
             project_id,
         )
         return ProjectOut(**dict(row))
@@ -119,7 +121,7 @@ async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: st
         f"""
         UPDATE project SET {set_clauses}, updated_at = now()
         WHERE id = $1
-        RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        RETURNING {_PROJECT_COLS}
         """,
         project_id, *values,
     )
@@ -138,10 +140,10 @@ async def update_project(conn: asyncpg.Connection, project_id: UUID, user_id: st
 async def complete_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) -> ProjectOut:
     uid = to_uuid(user_id)
     row = await conn.fetchrow(
-        """
+        f"""
         UPDATE project SET completed_at = now(), updated_at = now()
         WHERE id = $1 AND user_id = $2
-        RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        RETURNING {_PROJECT_COLS}
         """,
         project_id, uid,
     )
@@ -154,17 +156,17 @@ async def uncomplete_project(conn: asyncpg.Connection, project_id: UUID, user_id
     uid = to_uuid(user_id)
     # Read the old completion day before it is overwritten with NULL.
     before = await conn.fetchrow(
-        "SELECT id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at FROM project WHERE id = $1 AND user_id = $2",
+        f"SELECT {_PROJECT_COLS} FROM project WHERE id = $1 AND user_id = $2",
         project_id, uid,
     )
     if not before:
         raise HTTPException(status_code=404, detail="Project not found")
 
     row = await conn.fetchrow(
-        """
+        f"""
         UPDATE project SET completed_at = NULL, updated_at = now()
         WHERE id = $1
-        RETURNING id, user_id, name, point_value, due_date, overview, completed_at, created_at, updated_at
+        RETURNING {_PROJECT_COLS}
         """,
         project_id,
     )
@@ -191,6 +193,25 @@ async def delete_project(conn: asyncpg.Connection, project_id: UUID, user_id: st
         raise HTTPException(status_code=404, detail="Project not found")
     await _rescore_for(conn, user_id, tz_str, *before)
     return {"deleted": True}
+
+
+async def reorder_projects(conn: asyncpg.Connection, user_id: str, ids: list[UUID]) -> list[ProjectOut]:
+    """Rewrite sort_order from the position of each id in `ids`.
+
+    Rows the caller left out keep whatever order they had, which puts them ahead
+    of the reordered block; the client always sends the full list, so that only
+    happens if a project was created in another tab mid-drag.
+    """
+    uid = to_uuid(user_id)
+    await conn.execute(
+        """
+        UPDATE project SET sort_order = o.pos, updated_at = now()
+        FROM unnest($2::uuid[]) WITH ORDINALITY AS o(id, pos)
+        WHERE project.id = o.id AND project.user_id = $1
+        """,
+        uid, ids,
+    )
+    return await list_projects(conn, user_id)
 
 
 # --- Project Updates ---
@@ -252,11 +273,11 @@ async def create_task(conn: asyncpg.Connection, project_id: UUID, user_id: str, 
         raise HTTPException(status_code=404, detail="Project not found")
     row = await conn.fetchrow(
         f"""
-        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, comment)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, description, comment)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING {_TASK_COLS}
         """,
-        project_id, uid, data.name, data.point_value, data.due_date, data.comment,
+        project_id, uid, data.name, data.point_value, data.due_date, data.description, data.comment,
     )
     return ProjectTaskOut(**dict(row))
 
@@ -353,7 +374,7 @@ async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, tz_
     return {"deleted": True}
 
 
-_TODO_COLS = "id, user_id, name, point_value, due_date, comment, completed_at, created_at, updated_at"
+_TODO_COLS = "id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
 
 
 async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> TodoOut:
@@ -371,12 +392,12 @@ async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id:
         todo = await conn.fetchrow(
             f"""
             INSERT INTO todo
-                (user_id, name, point_value, due_date, comment, completed_at, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
+                (user_id, name, point_value, due_date, description, comment, completed_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING {_TODO_COLS}
             """,
             uid, task["name"], task["point_value"], task["due_date"],
-            task["comment"], task["completed_at"], task["created_at"],
+            task["description"], task["comment"], task["completed_at"], task["created_at"],
         )
         await conn.execute("DELETE FROM project_task WHERE id = $1", task_id)
 

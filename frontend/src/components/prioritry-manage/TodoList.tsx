@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTodos, useDeleteTodo, useUpdateTodo } from '../../hooks/useTodos';
-import { EditableComment } from '../day-tracker/EditableComment';
+import { DescriptionAndComment } from '../shared/DescriptionAndComment';
 import { ConvertTodoToTask } from '../shared/ConvertTodoToTask';
 import type { Todo } from '../../types';
 
@@ -100,11 +100,11 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
           {todo.completed_at && <span className="ml-2 text-xs text-green-600">✓</span>}
         </div>
         <ConvertTodoToTask todoId={todo.id} />
-        <span className="w-20 text-right text-xs text-gray-400">
+        <span className="w-20 text-right text-xs text-gray-500">
           {todo.due_date ? formatDateOnly(todo.due_date) : '—'}
         </span>
         <span className="w-14 text-right text-xs text-gray-500">{todo.point_value} pts</span>
-        <span className="w-20 text-right text-xs text-gray-400">{rightDate}</span>
+        <span className="w-20 text-right text-xs text-gray-500">{rightDate}</span>
         <button
           onClick={(e) => { e.stopPropagation(); onDelete(); }}
           disabled={deleting}
@@ -113,10 +113,12 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
           Delete
         </button>
       </div>
-      {/* Sibling of the click-to-edit row, so editing a comment never opens the row form. */}
-      <EditableComment
-        value={todo.comment}
-        onSave={comment => updateTodo.mutate({ id: todo.id, data: { comment } })}
+      {/* Sibling of the click-to-edit row, so editing a field never opens the row form. */}
+      <DescriptionAndComment
+        description={todo.description}
+        comment={todo.comment}
+        onSaveDescription={description => updateTodo.mutate({ id: todo.id, data: { description } })}
+        onSaveComment={comment => updateTodo.mutate({ id: todo.id, data: { comment } })}
       />
     </div>
   );
@@ -128,8 +130,8 @@ export function TodoList() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
 
-  if (isLoading) return <p className="text-gray-400 text-sm">Loading...</p>;
-  if (!todos?.length) return <p className="text-gray-400 text-sm">No todos yet. Add one above.</p>;
+  if (isLoading) return <p className="text-gray-500 text-sm">Loading...</p>;
+  if (!todos?.length) return <p className="text-gray-500 text-sm">No todos yet. Add one above.</p>;
 
   const uncompleted = todos.filter(t => t.completed_at === null);
   const completed = todos.filter(t => t.completed_at !== null);
@@ -175,10 +177,10 @@ export function TodoList() {
     <div className="space-y-6">
       <div>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-          Uncompleted <span className="text-gray-400 font-normal">({uncompleted.length})</span>
+          Uncompleted <span className="text-gray-500 font-normal">({uncompleted.length})</span>
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
-          <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-400 font-medium">
+          <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-500 font-medium">
             <div className="flex-1">Name</div>
             <button
               onClick={() => toggleSort('due_date')}
@@ -202,7 +204,7 @@ export function TodoList() {
           </div>
 
           {sortedUncompleted.length === 0 && (
-            <p className="px-4 py-2 text-sm text-gray-400">Nothing left in the queue.</p>
+            <p className="px-4 py-2 text-sm text-gray-500">Nothing left in the queue.</p>
           )}
 
           {sortedUncompleted.map(t => (
@@ -225,10 +227,10 @@ export function TodoList() {
 
       <div>
         <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-2">
-          Completed <span className="text-gray-400 font-normal">({completed.length})</span>
+          Completed <span className="text-gray-500 font-normal">({completed.length})</span>
         </h3>
         <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
-          <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-400 font-medium">
+          <div className="flex items-center gap-2 px-4 py-2 text-xs text-gray-500 font-medium">
             <div className="flex-1">Name</div>
             <div className="w-20 text-right">Due</div>
             <div className="w-14 text-right">Pts</div>
@@ -237,7 +239,7 @@ export function TodoList() {
           </div>
 
           {sortedCompleted.length === 0 && (
-            <p className="px-4 py-2 text-sm text-gray-400">Nothing completed yet.</p>
+            <p className="px-4 py-2 text-sm text-gray-500">Nothing completed yet.</p>
           )}
 
           {sortedCompleted.map(t => (

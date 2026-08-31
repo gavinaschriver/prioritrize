@@ -257,7 +257,7 @@ export function TagCommentInput({
                 <span className="inline-flex items-center bg-blue-100 text-blue-700 text-xs rounded-full px-2 py-0.5 font-medium">
                   #{s.tag}
                 </span>
-                <span className="text-xs text-gray-400 font-mono">{s.count}</span>
+                <span className="text-xs text-gray-500 font-mono">{s.count}</span>
               </button>
             </li>
           ))}
@@ -268,10 +268,18 @@ export function TagCommentInput({
 }
 
 /** Read-only display of a serialized comment string — shows tags as pills. */
-export function CommentDisplay({ value, onClick, className = '' }: {
+export function CommentDisplay({
+  value,
+  onClick,
+  className = '',
+  emptyLabel = 'Add comment...',
+  editTitle = 'Click to edit comment',
+}: {
   value: string | null;
   onClick?: () => void;
   className?: string;
+  emptyLabel?: string;
+  editTitle?: string;
 }) {
   const { tags, text } = parseComment(value ?? '');
   const empty = tags.length === 0 && !text;
@@ -280,7 +288,7 @@ export function CommentDisplay({ value, onClick, className = '' }: {
     <p
       onClick={onClick}
       className={`flex flex-wrap items-center gap-1 text-xs mt-0.5 ${onClick ? 'cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors' : ''} ${className}`}
-      title={onClick ? 'Click to edit comment' : undefined}
+      title={onClick ? editTitle : undefined}
     >
       {tags.map((tag, i) => (
         <span
@@ -291,7 +299,7 @@ export function CommentDisplay({ value, onClick, className = '' }: {
         </span>
       ))}
       {text && <span className="text-gray-500 italic">{text}</span>}
-      {empty && onClick && <span className="text-gray-400 italic">Add comment...</span>}
+      {empty && onClick && <span className="text-gray-500 italic">{emptyLabel}</span>}
     </p>
   );
 }

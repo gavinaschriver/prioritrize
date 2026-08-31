@@ -32,6 +32,7 @@ class TodoSummary(BaseModel):
     created_at: datetime
     score: Decimal
     is_upcoming: bool
+    description: str | None = None
     comment: str | None = None
 
     # The due date this day was actually scored against. Differs from due_date only
@@ -61,6 +62,7 @@ class DeadlineSummary(BaseModel):
     completed_at: datetime | None
     score: Decimal
     is_upcoming: bool
+    description: str | None = None
     comment: str | None = None
 
     # The due date this day was actually scored against. Differs from due_date only

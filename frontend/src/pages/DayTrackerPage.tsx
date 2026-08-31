@@ -76,7 +76,7 @@ export function DayTrackerPage() {
       {isToday && <YesterdayPrompt onGoToYesterday={goToYesterday} />}
 
       {isLoading && (
-        <p className="text-gray-400 text-sm text-center py-8">Loading day...</p>
+        <p className="text-gray-500 text-sm text-center py-8">Loading day...</p>
       )}
       {error && (
         <p className="text-red-600 text-sm text-center py-4">
@@ -89,7 +89,7 @@ export function DayTrackerPage() {
           <div className="flex justify-end gap-2 mb-2">
             <button
               onClick={toggleAll}
-              className="text-xs px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-400 hover:text-gray-600 transition-colors"
+              className="text-xs px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-500 hover:text-gray-600 transition-colors"
               title={allOpen ? "Collapse every section" : "Open every section"}
             >
               {allOpen ? "Hide All" : "Expand All"}
@@ -99,7 +99,7 @@ export function DayTrackerPage() {
               className={`text-xs px-2 py-1 rounded-lg border transition-colors ${
                 hybridView
                   ? "bg-blue-50 border-blue-200 text-blue-600 font-medium"
-                  : "bg-white border-gray-200 text-gray-400 hover:text-gray-600"
+                  : "bg-white border-gray-200 text-gray-500 hover:text-gray-600"
               }`}
               title="Show tasks and todos as one list"
             >

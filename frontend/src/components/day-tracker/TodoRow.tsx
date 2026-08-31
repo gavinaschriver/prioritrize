@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useCompleteTodo, useUpdateTodo } from "../../hooks/useTodos";
 import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
-import { EditableComment } from "./EditableComment";
+import { DescriptionAndComment } from "../shared/DescriptionAndComment";
 import { ConvertTodoToTask } from "../shared/ConvertTodoToTask";
 import { DeferredBadge } from "../shared/DeferredBadge";
 import type { TodoSummary } from "../../types";
@@ -28,7 +28,7 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
       ? `+${score}`
       : String(score);
   const scoreColor = item.is_upcoming
-    ? "text-gray-400"
+    ? "text-gray-500"
     : score > 0
       ? "text-green-600"
       : "text-red-600";
@@ -116,7 +116,7 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
           setEditDue(item.due_date ?? "");
           setEditing(true);
         }}
-        className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
+        className="shrink-0 text-gray-500 hover:text-blue-500 text-sm"
         title="Edit todo"
       >
         ✎
@@ -144,10 +144,10 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
             <DeferredBadge effectiveDueDate={item.effective_due_date} />
           )}
         </div>
-        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-500 pt-0.5">
           {dueLabel ?? "—"}
         </div>
-        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-500 pt-0.5">
           {addedDate}
         </div>
         <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
@@ -168,9 +168,13 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
         {completeButton}
       </div>
       <div className="sm:mt-1.5">
-        <EditableComment
-          value={item.comment}
-          onSave={(comment) =>
+        <DescriptionAndComment
+          description={item.description}
+          comment={item.comment}
+          onSaveDescription={(description) =>
+            updateTodo.mutate({ id: item.id, data: { description } })
+          }
+          onSaveComment={(comment) =>
             updateTodo.mutate({ id: item.id, data: { comment } })
           }
         />

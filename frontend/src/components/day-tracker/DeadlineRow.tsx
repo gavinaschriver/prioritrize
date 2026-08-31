@@ -6,7 +6,7 @@ import {
   useUpdateProjectTask,
 } from "../../hooks/useProjects";
 import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
-import { EditableComment } from "./EditableComment";
+import { DescriptionAndComment } from "../shared/DescriptionAndComment";
 import { ConvertTaskToTodo } from "../shared/ConvertTaskToTodo";
 import { DeferredBadge } from "../shared/DeferredBadge";
 import type { DeadlineSummary } from "../../types";
@@ -36,7 +36,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
       ? `+${score}`
       : String(score);
   const scoreColor = item.is_upcoming
-    ? "text-gray-400"
+    ? "text-gray-500"
     : score > 0
       ? "text-green-600"
       : "text-red-600";
@@ -143,7 +143,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
             setEditDue(item.due_date ?? "");
             setEditing(true);
           }}
-          className="shrink-0 text-gray-300 hover:text-blue-500 text-sm"
+          className="shrink-0 text-gray-500 hover:text-blue-500 text-sm"
           title="Edit task"
         >
           ✎
@@ -191,10 +191,10 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
             </Link>
           )}
         </div>
-        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-500 pt-0.5">
           {dueLabel ?? "—"}
         </div>
-        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-400 pt-0.5">
+        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-500 pt-0.5">
           {addedDate}
         </div>
         <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
@@ -216,9 +216,13 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
       </div>
       {item.type === "task" && (
         <div className="sm:mt-1.5">
-          <EditableComment
-            value={item.comment}
-            onSave={(comment) =>
+          <DescriptionAndComment
+            description={item.description}
+            comment={item.comment}
+            onSaveDescription={(description) =>
+              updateTask.mutate({ taskId: item.id, data: { description } })
+            }
+            onSaveComment={(comment) =>
               updateTask.mutate({ taskId: item.id, data: { comment } })
             }
           />

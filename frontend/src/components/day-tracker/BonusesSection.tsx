@@ -35,7 +35,7 @@ export function BonusesSection({
       </div>
       {open && (
         <>
-          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-400 font-medium px-0 mb-1">
+          <div className="flex items-center gap-1 sm:gap-2 text-xs text-gray-500 font-medium px-0 mb-1">
             <div className="flex-1">Name</div>
             <div className="w-[5.75rem] sm:w-32"></div>
             <div className="w-7 sm:w-12 text-right">Pts</div>
@@ -43,7 +43,7 @@ export function BonusesSection({
             <div className="w-11 sm:w-14 text-right">Total</div>
           </div>
           {bonuses.length === 0 && (
-            <p className="text-sm text-gray-400 py-2">No bonuses yet.</p>
+            <p className="text-sm text-gray-500 py-2">No bonuses yet.</p>
           )}
           {bonuses.map((b) => (
             <PrioritryRow

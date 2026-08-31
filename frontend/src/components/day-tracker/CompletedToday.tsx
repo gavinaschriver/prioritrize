@@ -2,6 +2,7 @@ import { useDeleteEntry, useUpdateEntryComment, useDecrementEntry, useIncrementE
 import { useUncompleteTodo, useUpdateTodo } from '../../hooks/useTodos';
 import { useUncompleteProjectTask, useUpdateProjectTask, useUncompleteProject } from '../../hooks/useProjects';
 import { EditableComment } from './EditableComment';
+import { DescriptionAndComment } from '../shared/DescriptionAndComment';
 import { formatScore } from './SectionSubtotal';
 import type { DaySummary, DeadlineSummary, TodoSummary } from '../../types';
 
@@ -14,7 +15,9 @@ function CompletedRow({
   title,
   kind,
   points,
+  description,
   comment,
+  onSaveDescription,
   onSaveComment,
   onRemove,
   onDecrement,
@@ -25,7 +28,9 @@ function CompletedRow({
   title: string;
   kind?: React.ReactNode;
   points?: number;
+  description?: string | null;
   comment: string | null;
+  onSaveDescription?: (description: string | null) => void;
   onSaveComment?: (comment: string | null) => void;
   onRemove: () => void;
   onDecrement?: () => void;
@@ -38,9 +43,16 @@ function CompletedRow({
       <div className="flex-1 min-w-0">
         <p className="text-sm font-medium">
           {title}
-          {kind && <span className="ml-2 text-xs text-gray-300 uppercase tracking-wide">{kind}</span>}
+          {kind && <span className="ml-2 text-xs text-gray-500 uppercase tracking-wide">{kind}</span>}
         </p>
-        {onSaveComment ? (
+        {onSaveDescription && onSaveComment ? (
+          <DescriptionAndComment
+            description={description ?? null}
+            comment={comment}
+            onSaveDescription={onSaveDescription}
+            onSaveComment={onSaveComment}
+          />
+        ) : onSaveComment ? (
           <EditableComment value={comment} onSave={onSaveComment} />
         ) : comment ? (
           <p className="text-xs text-gray-500 italic mt-0.5">{comment}</p>
@@ -56,7 +68,7 @@ function CompletedRow({
           onClick={onDecrement}
           disabled={removeDisabled}
           title="Remove one block"
-          className="shrink-0 ml-2 text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50"
+          className="shrink-0 ml-2 text-xs text-gray-500 hover:text-gray-600 hover:underline disabled:opacity-50"
         >
           −1
         </button>
@@ -66,7 +78,7 @@ function CompletedRow({
           onClick={onIncrement}
           disabled={removeDisabled}
           title="Add one more block"
-          className="shrink-0 ml-2 text-xs text-gray-400 hover:text-gray-600 hover:underline disabled:opacity-50"
+          className="shrink-0 ml-2 text-xs text-gray-500 hover:text-gray-600 hover:underline disabled:opacity-50"
         >
           +1
         </button>
@@ -90,7 +102,9 @@ function TodoEntry({ item }: { item: TodoSummary }) {
       title={item.name}
       kind="todo"
       points={Number(item.score)}
+      description={item.description}
       comment={item.comment}
+      onSaveDescription={description => updateTodo.mutate({ id: item.id, data: { description } })}
       onSaveComment={comment => updateTodo.mutate({ id: item.id, data: { comment } })}
       onRemove={() => uncomplete.mutate(item.id)}
       removeDisabled={uncomplete.isPending}
@@ -107,7 +121,9 @@ function TaskEntry({ item }: { item: DeadlineSummary }) {
       title={item.name}
       kind={item.project_name ? <>task · <span className="font-bold">{item.project_name}</span></> : 'task'}
       points={Number(item.score)}
+      description={item.description}
       comment={item.comment}
+      onSaveDescription={description => updateTask.mutate({ taskId: item.id, data: { description } })}
       onSaveComment={comment => updateTask.mutate({ taskId: item.id, data: { comment } })}
       onRemove={() => uncomplete.mutate(item.id)}
       removeDisabled={uncomplete.isPending}

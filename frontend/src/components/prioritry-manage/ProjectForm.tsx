@@ -55,7 +55,7 @@ export function ProjectForm() {
 
       <div className="flex gap-3">
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Point Value <span className="text-gray-300">(optional)</span></label>
+          <label className="text-xs text-gray-500">Point Value <span className="text-gray-500">(optional)</span></label>
           <input
             type="number"
             min={0}
@@ -66,7 +66,7 @@ export function ProjectForm() {
           />
         </div>
         <div className="flex-1">
-          <label className="text-xs text-gray-500">Due Date <span className="text-gray-300">(optional)</span></label>
+          <label className="text-xs text-gray-500">Due Date <span className="text-gray-500">(optional)</span></label>
           <input
             type="date"
             value={dueDate}
@@ -77,7 +77,7 @@ export function ProjectForm() {
       </div>
 
       <div>
-        <label className="text-xs text-gray-500">Overview <span className="text-gray-300">(optional)</span></label>
+        <label className="text-xs text-gray-500">Overview <span className="text-gray-500">(optional)</span></label>
         <textarea
           value={overview}
           onChange={e => setOverview(e.target.value)}

@@ -17,6 +17,11 @@ class ProjectUpdate(BaseModel):
     overview: str | None = None
 
 
+class ProjectReorder(BaseModel):
+    """Full ordering of the user's projects, first to last."""
+    ids: list[UUID]
+
+
 class ProjectUpdateCreate(BaseModel):
     body: str
 
@@ -33,6 +38,7 @@ class ProjectTaskCreate(BaseModel):
     name: str
     point_value: int = Field(default=0, ge=0)
     due_date: date | None = None
+    description: str | None = None
     comment: str | None = None
 
 
@@ -40,6 +46,7 @@ class ProjectTaskUpdate(BaseModel):
     name: str | None = None
     point_value: int | None = Field(default=None, ge=0)
     due_date: date | None = None
+    description: str | None = None
     comment: str | None = None
 
 
@@ -50,6 +57,7 @@ class ProjectTaskOut(BaseModel):
     name: str
     point_value: int
     due_date: date | None
+    description: str | None
     comment: str | None
     completed_at: datetime | None
     created_at: datetime
@@ -63,6 +71,7 @@ class ProjectOut(BaseModel):
     point_value: int | None
     due_date: date | None
     overview: str | None
+    sort_order: int
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

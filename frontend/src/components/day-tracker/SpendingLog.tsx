@@ -101,7 +101,7 @@ export function SpendingLog({ selectedDate }: SpendingLogProps) {
         </span>
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-gray-400 py-2">No spending logged.</p>
+        <p className="text-sm text-gray-500 py-2">No spending logged.</p>
       ) : (
         <>
           <div className="space-y-2">

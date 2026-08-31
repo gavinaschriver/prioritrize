@@ -172,7 +172,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Todos ---
     todo_rows = await conn.fetch(
         """
-        SELECT id, name, point_value, due_date, completed_at, created_at, comment
+        SELECT id, name, point_value, due_date, completed_at, created_at, description, comment
         FROM todo
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
@@ -191,7 +191,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
         todos.append(TodoSummary(
             id=t["id"], name=t["name"], point_value=t["point_value"],
             due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"],
-            score=score, is_upcoming=is_upcoming, comment=t["comment"],
+            score=score, is_upcoming=is_upcoming,
+            description=t["description"], comment=t["comment"],
             effective_due_date=effective_due,
         ))
     todos_subtotal = sum(t.score for t in todos)
@@ -249,7 +250,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Project Tasks ---
     task_rows = await conn.fetch(
         """
-        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at, pt.comment,
+        SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at,
+               pt.description, pt.comment,
                p.id AS project_id, p.name AS project_name
         FROM project_task pt
         JOIN project p ON p.id = pt.project_id
@@ -276,7 +278,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             project_id=t["project_id"], project_name=t["project_name"],
             point_value=pv, due_date=due_date, created_at=t["created_at"],
             completed_at=completed_at, score=score, is_upcoming=is_upcoming,
-            comment=t["comment"], effective_due_date=effective_due,
+            description=t["description"], comment=t["comment"],
+            effective_due_date=effective_due,
         ))
 
     # Sort combined deadlines by due_date ASC (overdue first, then upcoming, undated last)
@@ -376,6 +379,7 @@ async def upsert_snapshot(
     tz_str: str,
     conn: asyncpg.Connection,
     force: bool = False,
+    allow_legacy: bool = False,
 ):
     """Write (or refresh) one day's cached score.
 
@@ -383,16 +387,33 @@ async def upsert_snapshot(
     called with force=True. That is what makes the backfill idempotent — re-running
     it can only fill gaps, never rewrite history — and it means every overwrite of a
     closed day is an explicit decision made by a caller that knows the inputs moved.
+
+    force is not enough for a day stored under an older SCORING_VERSION. Those days
+    predate the breakdown, so their inputs are gone: is_active, point_value and
+    due_date are all read live, and rescoring one measures it against today's data
+    rather than its own. Across this account's 178 version 1 days that is worth
+    +7343 points of drift — more than twice the -3164 the version 2 rules themselves
+    account for. So re-dating one old todo would silently inflate the balance with a
+    slice of that. Only recompute_day, where a human asked for it and gets both
+    breakdowns back, passes allow_legacy.
     """
     uid = to_uuid(user_id)
     day = date_type.fromisoformat(date_str)
 
     existing = await conn.fetchrow(
-        "SELECT score, finalized FROM daily_snapshot WHERE user_id = $1 AND date = $2",
+        "SELECT score, finalized, version FROM daily_snapshot WHERE user_id = $1 AND date = $2",
         uid, day,
     )
-    if existing and existing["finalized"] and not force:
-        return existing["score"]
+    if existing and existing["finalized"]:
+        if not force:
+            return existing["score"]
+        if existing["version"] < SCORING_VERSION and not allow_legacy:
+            logger.info(
+                "refusing to rescore %s for user %s: stored under scoring version %d, "
+                "and its inputs are no longer reconstructible",
+                date_str, user_id, existing["version"],
+            )
+            return existing["score"]
 
     summary = await compute_day_score(user_id, date_str, tz_str, conn)
     # A day is closed once it is no longer the user's today.
@@ -607,9 +628,15 @@ async def recompute_day(
 ) -> RecomputeOut:
     """Rescore one day and report what moved.
 
-    This is the only sanctioned way to overwrite a finalized snapshot. Everything
+    This is the only sanctioned way to overwrite a finalized snapshot, and the only
+    caller allowed to touch a day stored under an older scoring version. Everything
     else treats closed days as immutable, so if a score changes here it is because
     a caller asked for it — and the two breakdowns show exactly what differed.
+
+    On a version 1 day, expect a large positive delta that has nothing to do with the
+    version 2 rules: those days were scored against goals and point values that have
+    since been edited or deleted. previous_breakdown is null there, which is the
+    signal that the old score cannot be re-derived.
     """
     uid = to_uuid(user_id)
     day = date_type.fromisoformat(date_str)
@@ -621,7 +648,9 @@ async def recompute_day(
         """,
         uid, day,
     )
-    new_score = await upsert_snapshot(user_id, date_str, tz_str, conn, force=True)
+    new_score = await upsert_snapshot(
+        user_id, date_str, tz_str, conn, force=True, allow_legacy=True
+    )
     after = await conn.fetchrow(
         "SELECT breakdown FROM daily_snapshot WHERE user_id = $1 AND date = $2",
         uid, day,
