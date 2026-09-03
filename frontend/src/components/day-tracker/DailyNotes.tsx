@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDailyNotes, useUpdateDailyNotes } from '../../hooks/useDailyNotes';
-import { MarkdownRenderer } from '../shared/MarkdownRenderer';
+import { Markdown } from '../shared/Markdown';
 
 interface Props {
   selectedDate: string;
@@ -83,7 +83,7 @@ export function DailyNotes({ selectedDate }: Props) {
                 e.target.style.height = e.target.scrollHeight + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder="How did today go? What happened? What did you learn?"
+              placeholder={"How did today go? What happened? What did you learn?\n\n- [ ] markdown works here: bullets, checklists, links"}
               className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-500 min-h-[120px]"
               rows={6}
             />
@@ -118,7 +118,14 @@ export function DailyNotes({ selectedDate }: Props) {
             onClick={handleEdit}
             className="px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition"
           >
-            <MarkdownRenderer text={data!.content} className="space-y-1" />
+            <Markdown
+              size="sm"
+              className="text-gray-700"
+              // Ticking a box saves on the spot instead of opening the editor.
+              onToggleTask={content => updateNotes.mutate(content)}
+            >
+              {data!.content}
+            </Markdown>
           </div>
         )}
       </div>

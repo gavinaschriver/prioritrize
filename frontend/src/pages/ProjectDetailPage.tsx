@@ -6,7 +6,7 @@ import {
   useCreateProjectTask, useUpdateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
 } from '../hooks/useProjects';
 import type { ProjectTask } from '../types';
-import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
+import { Markdown } from '../components/shared/Markdown';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
 import { formatDueDate } from '../lib/urgency';
@@ -177,7 +177,8 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
         <TagCommentInput
           value={taskDescription}
           onChange={setTaskDescription}
-          placeholder="Description — what to do, or #tag, (optional)"
+          placeholder="Description — what to do, or #tag, (optional) — markdown welcome"
+          multiline
         />
       </form>
     </div>
@@ -231,7 +232,13 @@ function UpdateEntry({
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 p-3 group">
-      <p className="text-sm text-gray-800 whitespace-pre-wrap">{update.body}</p>
+      <Markdown
+        size="sm"
+        className="text-gray-800"
+        onToggleTask={body => editUpdate.mutate({ updateId: update.id, body })}
+      >
+        {update.body}
+      </Markdown>
       <div className="flex items-center justify-between mt-1">
         <p className="text-xs text-gray-500">{formatDate(update.created_at)}</p>
         <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -392,14 +399,16 @@ export function ProjectDetailPage() {
 
             <div>
               <label className="text-xs text-gray-500">
-                Overview — use <code className="bg-gray-100 px-1 rounded">[ ] item</code> for checkboxes, <code className="bg-gray-100 px-1 rounded">~~text~~</code> for strikethrough
+                Overview — markdown: <code className="bg-gray-100 px-1 rounded">- [ ] item</code> for checkboxes,{' '}
+                <code className="bg-gray-100 px-1 rounded">- item</code> for bullets,{' '}
+                <code className="bg-gray-100 px-1 rounded">~~text~~</code> for strikethrough, links autolink
               </label>
               <textarea
                 value={overview}
                 onChange={e => setOverview(e.target.value)}
                 rows={8}
                 className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono"
-                placeholder="[ ] Task one&#10;[ ] Task two&#10;~~done thing~~"
+                placeholder="- [ ] Task one&#10;- [ ] Task two&#10;~~done thing~~"
               />
             </div>
 
@@ -434,7 +443,9 @@ export function ProjectDetailPage() {
             </div>
 
             {project.overview ? (
-              <MarkdownRenderer text={project.overview} onCheckboxToggle={handleCheckboxToggle} className="space-y-1" />
+              <Markdown size="sm" className="text-gray-700" onToggleTask={handleCheckboxToggle}>
+                {project.overview}
+              </Markdown>
             ) : (
               <p className="text-sm text-gray-500 italic">No overview yet. Click Edit to add one.</p>
             )}

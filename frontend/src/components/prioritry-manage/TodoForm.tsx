@@ -78,7 +78,8 @@ export function TodoForm() {
         <TagCommentInput
           value={description}
           onChange={setDescription}
-          placeholder="What to do, notes on how, or #tag,"
+          placeholder="What to do, notes on how, or #tag, — markdown welcome"
+          multiline
           className="mt-1"
         />
       </div>

@@ -362,6 +362,7 @@ export function CommentDisplay({
         {tags.length > 0 && <div className="flex flex-wrap items-center gap-1 mb-0.5">{pills}</div>}
         {text && (
           <Markdown
+            className="text-gray-600"
             onToggleTask={
               // The pills live in the same string, so put them back in front of
               // the rewritten body before handing it up to be saved.

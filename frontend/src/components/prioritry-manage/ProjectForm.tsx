@@ -83,7 +83,7 @@ export function ProjectForm() {
           onChange={e => setOverview(e.target.value)}
           rows={3}
           className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-          placeholder="Describe the project..."
+          placeholder="Describe the project... — markdown: - [ ] checklists, - bullets, links"
         />
       </div>
 

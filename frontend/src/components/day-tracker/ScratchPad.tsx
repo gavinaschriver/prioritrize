@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useScratchPad, useUpdateScratchPad } from '../../hooks/useScratchPad';
-import { MarkdownRenderer } from '../shared/MarkdownRenderer';
+import { Markdown } from '../shared/Markdown';
 
 export function ScratchPad() {
   const { data, isLoading } = useScratchPad();
@@ -74,7 +74,7 @@ export function ScratchPad() {
                 e.target.style.height = e.target.scrollHeight + 'px';
               }}
               onKeyDown={handleKeyDown}
-              placeholder={"# Ideas\n\n[ ] thing to try\n[ ] another idea\n\n**bold**, *italic*, ~~strikethrough~~"}
+              placeholder={"# Ideas\n\n- [ ] thing to try\n- [ ] another idea\n\n**bold**, *italic*, ~~strikethrough~~, https://links"}
               className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-500 min-h-[120px]"
               rows={6}
             />
@@ -109,7 +109,13 @@ export function ScratchPad() {
             onClick={handleEdit}
             className="px-4 py-3 cursor-pointer hover:bg-gray-50 rounded-lg transition"
           >
-            <MarkdownRenderer text={data!.content} className="space-y-1" />
+            <Markdown
+              size="sm"
+              className="text-gray-700"
+              onToggleTask={content => updatePad.mutate(content)}
+            >
+              {data!.content}
+            </Markdown>
           </div>
         )}
       </div>
