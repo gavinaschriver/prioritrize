@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTags } from '../../hooks/useTags';
+import { Linkify } from '../shared/Linkify';
 import { Markdown } from '../shared/Markdown';
 import type { TagSuggestion } from '../../types';
 
@@ -382,7 +383,11 @@ export function CommentDisplay({
       title={onClick ? editTitle : undefined}
     >
       {pills}
-      {text && <span className="text-gray-500 italic">{text}</span>}
+      {text && (
+        <span className="text-gray-500 italic">
+          <Linkify text={text} />
+        </span>
+      )}
       {empty && onClick && <span className="text-gray-500 italic">{emptyLabel}</span>}
     </p>
   );
