@@ -4,6 +4,10 @@ import { DeadlineRow } from './DeadlineRow';
 import { SectionSubtotal, formatScore } from './SectionSubtotal';
 import type { DeadlineSummary, TodoSummary } from '../../types';
 
+/** Rows revealed per click. The queue is a working list, not an archive — it
+ *  opens at one screenful and grows on request. */
+const PAGE = 10;
+
 type SortField = 'created_at' | 'point_value' | 'due_date';
 type SortDir = 'asc' | 'desc';
 
@@ -22,6 +26,7 @@ interface CombinedQueueSectionProps {
 /** Everything actionable that isn't a daily — todos and project tasks in one list. */
 export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onToggle }: CombinedQueueSectionProps) {
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
+  const [visibleCount, setVisibleCount] = useState(PAGE);
 
   const pending: QueueItem[] = [
     ...todos.filter(t => t.completed_at === null).map(item => ({ kind: 'todo' as const, item })),
@@ -58,6 +63,11 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onTog
     if (cmp === 0) cmp = new Date(a.item.created_at).getTime() - new Date(b.item.created_at).getTime();
     return sort.dir === 'asc' ? cmp : -cmp;
   });
+
+  // Re-sorting reorders what you're looking at rather than starting a new list,
+  // so however far you've paged through it stays paged.
+  const visible = sorted.slice(0, visibleCount);
+  const remaining = sorted.length - visible.length;
 
   const sortIcon = (field: SortField) =>
     sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓';
@@ -107,7 +117,7 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onTog
           )}
 
           <div className="space-y-1">
-            {sorted.map(q =>
+            {visible.map(q =>
               q.kind === 'todo' ? (
                 <TodoRow key={`todo-${q.item.id}`} item={q.item} viewedDate={viewedDate} />
               ) : (
@@ -115,6 +125,27 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onTog
               )
             )}
           </div>
+
+          {(remaining > 0 || visibleCount > PAGE) && (
+            <div className="flex items-center gap-3 mt-2">
+              {remaining > 0 && (
+                <button
+                  onClick={() => setVisibleCount(c => c + PAGE)}
+                  className="text-xs text-blue-500 hover:underline"
+                >
+                  Show {Math.min(PAGE, remaining)} more ({remaining} left)
+                </button>
+              )}
+              {visibleCount > PAGE && (
+                <button
+                  onClick={() => setVisibleCount(PAGE)}
+                  className="text-xs text-gray-500 hover:underline"
+                >
+                  Show less
+                </button>
+              )}
+            </div>
+          )}
 
           <SectionSubtotal label="Today's Tasks & Todos Score" value={subtotal} />
         </>
