@@ -7,6 +7,8 @@ interface EditableCommentProps {
   placeholder?: string;
   emptyLabel?: string;
   editTitle?: string;
+  /** Edit as a markdown body in a textarea instead of a one-line comment. */
+  multiline?: boolean;
 }
 
 /** Click-to-edit comment, shared by daily entries, todos and project tasks. */
@@ -16,6 +18,7 @@ export function EditableComment({
   placeholder = 'Add a comment or #tag,',
   emptyLabel,
   editTitle,
+  multiline = false,
 }: EditableCommentProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [draft, setDraft] = useState(value ?? '');
@@ -42,6 +45,7 @@ export function EditableComment({
         onBlur={save}
         onEscape={cancel}
         autoFocus
+        multiline={multiline}
         className="mt-0.5 bg-gray-50"
       />
     );
@@ -52,6 +56,10 @@ export function EditableComment({
       value={value}
       emptyLabel={emptyLabel}
       editTitle={editTitle}
+      multiline={multiline}
+      // Ticking a box saves straight from the rendered view — the editor is
+      // for writing, not for hunting down brackets.
+      onToggleTask={multiline ? next => onSave(next) : undefined}
       onClick={() => {
         setDraft(value ?? '');
         setIsEditing(true);

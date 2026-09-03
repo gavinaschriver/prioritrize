@@ -13,8 +13,8 @@ function Field({
   ...props
 }: { label: string } & React.ComponentProps<typeof EditableComment>) {
   return (
-    <div className="flex items-baseline gap-1.5">
-      <span className="w-16 shrink-0 text-left text-[10px] lowercase tracking-wide text-gray-500 select-none">
+    <div className="flex items-start gap-1.5">
+      <span className="w-16 shrink-0 pt-1 text-left text-[10px] lowercase tracking-wide text-gray-500 select-none">
         {label}
       </span>
       <div className="flex-1 min-w-0">
@@ -27,8 +27,9 @@ function Field({
 /**
  * The two text fields every todo and task carries: what you set out to do, and
  * how it actually went. One arrow opens both, and they start closed to keep
- * rows short. Shared so a todo reads the same on the tracker, the manage list
- * and a project page.
+ * rows short. Both take markdown — bullets, checklists, links — edited in a
+ * textarea and rendered when closed. Shared so a todo reads the same on the
+ * tracker, the manage list and a project page.
  */
 export function DescriptionAndComment({
   description,
@@ -59,17 +60,19 @@ export function DescriptionAndComment({
             label="desc"
             value={description}
             onSave={onSaveDescription}
-            placeholder="What to do, notes on how, or #tag,"
+            placeholder="What to do, notes on how, or #tag, — markdown welcome"
             emptyLabel="Add description..."
             editTitle="Click to edit description"
+            multiline
           />
           <Field
             label="comment"
             value={comment}
             onSave={onSaveComment}
-            placeholder="How did it go? or #tag,"
+            placeholder="How did it go? or #tag, — markdown welcome"
             emptyLabel="Add comment..."
             editTitle="Click to edit comment"
+            multiline
           />
         </>
       )}

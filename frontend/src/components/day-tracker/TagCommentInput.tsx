@@ -1,6 +1,17 @@
 import { useState, useRef, useEffect, useMemo } from 'react';
 import { useTags } from '../../hooks/useTags';
+import { Markdown } from '../shared/Markdown';
 import type { TagSuggestion } from '../../types';
+
+/** The one field a comment and a markdown body share. */
+type FieldElement = HTMLInputElement | HTMLTextAreaElement;
+
+/**
+ * '#tag' is a pill; '# heading' and '## heading' are markdown. Tags never span
+ * lines either, so a body that happens to contain ', ' can't be eaten as one.
+ */
+const isTagPart = (part: string) =>
+  part.startsWith('#') && !/^#[#\s]/.test(part) && !part.includes('\n');
 
 export function parseComment(raw: string): { tags: string[]; text: string } {
   if (!raw.trim()) return { tags: [], text: '' };
@@ -8,7 +19,7 @@ export function parseComment(raw: string): { tags: string[]; text: string } {
   const tags: string[] = [];
   let textStartIdx = 0;
   for (let i = 0; i < parts.length; i++) {
-    if (parts[i].startsWith('#')) {
+    if (isTagPart(parts[i])) {
       tags.push(parts[i].slice(1));
       textStartIdx = i + 1;
     } else {
@@ -38,6 +49,8 @@ interface TagCommentInputProps {
   onBlur?: () => void;
   onEscape?: () => void;
   autoFocus?: boolean;
+  /** Multi-line markdown body: a growing textarea where Enter is a newline. */
+  multiline?: boolean;
 }
 
 export function TagCommentInput({
@@ -49,6 +62,7 @@ export function TagCommentInput({
   onBlur,
   onEscape,
   autoFocus,
+  multiline = false,
 }: TagCommentInputProps) {
   const init = parseComment(value);
   const [tags, setTags] = useState<string[]>(init.tags);
@@ -61,7 +75,7 @@ export function TagCommentInput({
   const [dismissed, setDismissed] = useState(false);
   const [focused, setFocused] = useState(false);
   const [caret, setCaret] = useState(0);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<FieldElement | null>(null);
   const pendingCaret = useRef<number | null>(null);
 
   // Committing a pill rewrites the field, so put the cursor back where the user
@@ -72,6 +86,16 @@ export function TagCommentInput({
       pendingCaret.current = null;
     }
   }, [inputValue]);
+
+  // The textarea grows with what's in it, so a long description doesn't get
+  // written through a three-line porthole.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (multiline && el) {
+      el.style.height = 'auto';
+      el.style.height = `${el.scrollHeight}px`;
+    }
+  }, [inputValue, multiline]);
 
   useEffect(() => {
     if (value !== lastExternal.current) {
@@ -85,7 +109,7 @@ export function TagCommentInput({
   // The tag being typed runs from a leading '#' to the caret — anything past the
   // caret is body text the user is typing in front of, not part of the tag.
   // (Editing an existing comment puts that body text in the field from the start.)
-  const pending = inputValue.startsWith('#') && caret > 0
+  const pending = isTagPart(inputValue.slice(0, caret)) && caret > 0
     ? inputValue.slice(1, caret)
     : null;
   const query = pending !== null && !pending.includes(',')
@@ -133,7 +157,7 @@ export function TagCommentInput({
     pendingCaret.current = 0;
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleChange = (e: React.ChangeEvent<FieldElement>) => {
     const val = e.target.value;
     const pos = e.target.selectionStart ?? val.length;
     setHighlight(0);
@@ -142,7 +166,7 @@ export function TagCommentInput({
     // Form a tag when the user types ", " after a #word(s) segment. Only the text
     // before the caret counts, so this fires while typing in front of body text too.
     const before = val.slice(0, pos);
-    if (before.startsWith('#') && before.endsWith(', ')) {
+    if (isTagPart(before) && before.endsWith(', ')) {
       const tagName = before.slice(1, -2).trim();
       if (tagName && !tagName.includes(',')) {
         commitTag(tagName, val, pos);
@@ -153,7 +177,7 @@ export function TagCommentInput({
     emit(tags, val);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+  const handleKeyDown = (e: React.KeyboardEvent<FieldElement>) => {
     // While the dropdown is up it owns the arrows, Enter, Tab and Escape.
     if (showSuggestions) {
       if (e.key === 'ArrowDown') {
@@ -183,7 +207,8 @@ export function TagCommentInput({
       const newTags = tags.slice(0, -1);
       setTags(newTags);
       emit(newTags, '');
-    } else if (e.key === 'Enter' && onSubmit) {
+    } else if (e.key === 'Enter' && onSubmit && (!multiline || e.metaKey || e.ctrlKey)) {
+      // In a markdown body Enter is a newline; ⌘/Ctrl+Enter is the way out.
       e.preventDefault();
       onSubmit();
     } else if (e.key === 'Escape' && onEscape) {
@@ -220,24 +245,48 @@ export function TagCommentInput({
           </button>
         </span>
       ))}
-      <input
-        ref={inputRef}
-        type="text"
-        value={inputValue}
-        onChange={handleChange}
-        onKeyDown={handleKeyDown}
-        // Fires for clicks and arrow-key moves too, so the tag-in-progress
-        // stays correct however the caret got where it is.
-        onSelect={e => setCaret(e.currentTarget.selectionStart ?? 0)}
-        onFocus={() => setFocused(true)}
-        onBlur={() => {
-          setFocused(false);
-          onBlur?.();
-        }}
-        autoFocus={autoFocus}
-        placeholder={tags.length === 0 ? placeholder : ''}
-        className="flex-1 min-w-[80px] text-xs bg-transparent outline-none"
-      />
+      {multiline ? (
+        <textarea
+          ref={el => {
+            inputRef.current = el;
+          }}
+          rows={4}
+          value={inputValue}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          onSelect={e => setCaret(e.currentTarget.selectionStart ?? 0)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            onBlur?.();
+          }}
+          autoFocus={autoFocus}
+          placeholder={tags.length === 0 ? placeholder : ''}
+          // Full width on its own line — pills sit above the body, not beside it.
+          className="w-full min-h-[5rem] text-xs bg-transparent outline-none resize-none overflow-hidden font-mono leading-relaxed"
+        />
+      ) : (
+        <input
+          ref={el => {
+            inputRef.current = el;
+          }}
+          type="text"
+          value={inputValue}
+          onChange={handleChange}
+          onKeyDown={handleKeyDown}
+          // Fires for clicks and arrow-key moves too, so the tag-in-progress
+          // stays correct however the caret got where it is.
+          onSelect={e => setCaret(e.currentTarget.selectionStart ?? 0)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => {
+            setFocused(false);
+            onBlur?.();
+          }}
+          autoFocus={autoFocus}
+          placeholder={tags.length === 0 ? placeholder : ''}
+          className="flex-1 min-w-[80px] text-xs bg-transparent outline-none"
+        />
+      )}
 
       {showSuggestions && (
         <ul className="absolute top-full left-0 right-0 mt-1 z-20 max-h-48 overflow-y-auto bg-white border border-gray-200 rounded-lg shadow-md py-1">
@@ -274,30 +323,65 @@ export function CommentDisplay({
   className = '',
   emptyLabel = 'Add comment...',
   editTitle = 'Click to edit comment',
+  multiline = false,
+  onToggleTask,
 }: {
   value: string | null;
   onClick?: () => void;
   className?: string;
   emptyLabel?: string;
   editTitle?: string;
+  multiline?: boolean;
+  /** Given, checklist boxes are live and hand back the whole rewritten value. */
+  onToggleTask?: (next: string) => void;
 }) {
   const { tags, text } = parseComment(value ?? '');
   const empty = tags.length === 0 && !text;
+  const clickable = onClick
+    ? 'cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors'
+    : '';
+  const pills = tags.map((tag, i) => (
+    <span
+      key={i}
+      className="inline-flex items-center bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium"
+    >
+      #{tag}
+    </span>
+  ));
+
+  // A markdown body needs block elements, so it can't live in the inline <p>
+  // the one-line comment fields use.
+  if (multiline) {
+    return (
+      <div
+        onClick={onClick}
+        className={`text-xs mt-0.5 ${clickable} ${className}`}
+        title={onClick ? editTitle : undefined}
+      >
+        {tags.length > 0 && <div className="flex flex-wrap items-center gap-1 mb-0.5">{pills}</div>}
+        {text && (
+          <Markdown
+            onToggleTask={
+              // The pills live in the same string, so put them back in front of
+              // the rewritten body before handing it up to be saved.
+              onToggleTask && (next => onToggleTask(serializeComment(tags, next)))
+            }
+          >
+            {text}
+          </Markdown>
+        )}
+        {empty && onClick && <span className="text-gray-500 italic">{emptyLabel}</span>}
+      </div>
+    );
+  }
 
   return (
     <p
       onClick={onClick}
-      className={`flex flex-wrap items-center gap-1 text-xs mt-0.5 ${onClick ? 'cursor-pointer hover:bg-gray-50 rounded px-1 -mx-1 transition-colors' : ''} ${className}`}
+      className={`flex flex-wrap items-center gap-1 text-xs mt-0.5 ${clickable} ${className}`}
       title={onClick ? editTitle : undefined}
     >
-      {tags.map((tag, i) => (
-        <span
-          key={i}
-          className="inline-flex items-center bg-blue-100 text-blue-700 rounded-full px-2 py-0.5 font-medium"
-        >
-          #{tag}
-        </span>
-      ))}
+      {pills}
       {text && <span className="text-gray-500 italic">{text}</span>}
       {empty && onClick && <span className="text-gray-500 italic">{emptyLabel}</span>}
     </p>
