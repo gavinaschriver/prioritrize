@@ -8,7 +8,7 @@ import type { DeadlineSummary, TodoSummary } from '../../types';
  *  opens at one screenful and grows on request. */
 const PAGE = 10;
 
-type SortField = 'created_at' | 'point_value' | 'due_date';
+type SortField = 'point_value' | 'due_date';
 type SortDir = 'asc' | 'desc';
 
 type QueueItem =
@@ -40,15 +40,13 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onTog
     setSort(prev =>
       prev.field === field
         ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-        : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
+        : { field, dir: 'asc' }
     );
   };
 
   const sorted = [...pending].sort((a, b) => {
     let cmp: number;
-    if (sort.field === 'created_at') {
-      cmp = new Date(a.item.created_at).getTime() - new Date(b.item.created_at).getTime();
-    } else if (sort.field === 'due_date') {
+    if (sort.field === 'due_date') {
       // Undated items sit at the bottom regardless of direction — they aren't "later",
       // they're just not on the clock.
       if (!a.item.due_date || !b.item.due_date) {
@@ -95,12 +93,6 @@ export function CombinedQueueSection({ todos, deadlines, viewedDate, open, onTog
               className={`w-14 sm:w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === 'due_date' ? 'text-blue-600' : ''}`}
             >
               Due {sortIcon('due_date')}
-            </button>
-            <button
-              onClick={() => toggleSort('created_at')}
-              className={`w-16 sm:w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === 'created_at' ? 'text-blue-600' : ''}`}
-            >
-              Added {sortIcon('created_at')}
             </button>
             <div className="hidden sm:block w-40 shrink-0"></div>
             <button

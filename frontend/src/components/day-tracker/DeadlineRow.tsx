@@ -5,10 +5,11 @@ import {
   useCompleteProjectTask,
   useUpdateProjectTask,
 } from "../../hooks/useProjects";
-import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
+import { urgencyRow, formatDueDate } from "../../lib/urgency";
 import { DescriptionAndComment } from "../shared/DescriptionAndComment";
 import { ConvertTaskToTodo } from "../shared/ConvertTaskToTodo";
 import { DeferredBadge } from "../shared/DeferredBadge";
+import { DueBadge } from "../shared/DueBadge";
 import type { DeadlineSummary } from "../../types";
 
 interface DeadlineRowProps {
@@ -43,14 +44,9 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
   // Coloured by the date this day is actually scored against, which is the item's
   // own due date except on days a deferral pushed out from under. Those days keep
   // the urgency they really had, so the row can't sit calm and green while docking.
-  const rowBg = urgencyRowClass(item.effective_due_date, viewedDate);
+  const row = urgencyRow(item.effective_due_date, viewedDate);
 
   const dueLabel = item.due_date ? formatDueDate(item.due_date) : null;
-  const addedDate = new Date(item.created_at).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "2-digit",
-  });
 
   const handleComplete = () => {
     if (item.type === "project") {
@@ -82,7 +78,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
 
   if (editing && item.type === "task") {
     return (
-      <div className={`py-2 ${rowBg}`}>
+      <div className={`py-2 ${row.className}`} style={row.style}>
         <form
           onSubmit={handleSaveEdit}
           className="flex items-center gap-2 flex-wrap"
@@ -164,7 +160,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
   );
 
   return (
-    <div className={`py-2 ${rowBg}`}>
+    <div className={`py-2 ${row.className}`} style={row.style}>
       <div className="flex items-start gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
           {item.type === "project" ? (
@@ -182,6 +178,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
           {item.deferred && (
             <DeferredBadge effectiveDueDate={item.effective_due_date} />
           )}
+          <DueBadge dueDate={item.effective_due_date} viewedDate={viewedDate} />
           {item.type === "task" && item.project_name && item.project_id && (
             <Link
               to={`/projects/${item.project_id}`}
@@ -193,9 +190,6 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
         </div>
         <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-500 pt-0.5">
           {dueLabel ?? "—"}
-        </div>
-        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-500 pt-0.5">
-          {addedDate}
         </div>
         <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
           {convertEditActions}

@@ -1,9 +1,10 @@
 import { useState } from "react";
 import { useCompleteTodo, useUpdateTodo } from "../../hooks/useTodos";
-import { urgencyRowClass, formatDueDate } from "../../lib/urgency";
+import { urgencyRow, formatDueDate } from "../../lib/urgency";
 import { DescriptionAndComment } from "../shared/DescriptionAndComment";
 import { ConvertTodoToTask } from "../shared/ConvertTodoToTask";
 import { DeferredBadge } from "../shared/DeferredBadge";
+import { DueBadge } from "../shared/DueBadge";
 import type { TodoSummary } from "../../types";
 
 interface TodoRowProps {
@@ -35,13 +36,8 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
   // Coloured by the date this day is actually scored against, which is the item's
   // own due date except on days a deferral pushed out from under. Those days keep
   // the urgency they really had, so the row can't sit calm and green while docking.
-  const rowBg = urgencyRowClass(item.effective_due_date, viewedDate);
+  const row = urgencyRow(item.effective_due_date, viewedDate);
 
-  const addedDate = new Date(item.created_at).toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "2-digit",
-  });
   const dueLabel = item.due_date ? formatDueDate(item.due_date) : null;
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -60,7 +56,7 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
 
   if (editing) {
     return (
-      <div className={`py-2 ${rowBg}`}>
+      <div className={`py-2 ${row.className}`} style={row.style}>
         <form
           onSubmit={handleSaveEdit}
           className="flex items-center gap-2 flex-wrap"
@@ -136,19 +132,17 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
   );
 
   return (
-    <div className={`py-2 ${rowBg}`}>
+    <div className={`py-2 ${row.className}`} style={row.style}>
       <div className="flex items-start gap-1 sm:gap-2">
         <div className="flex-1 min-w-0">
           <span className="text-sm wrap-break-word">{item.name}</span>
           {item.deferred && (
             <DeferredBadge effectiveDueDate={item.effective_due_date} />
           )}
+          <DueBadge dueDate={item.effective_due_date} viewedDate={viewedDate} />
         </div>
         <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-500 pt-0.5">
           {dueLabel ?? "—"}
-        </div>
-        <div className="w-16 sm:w-20 shrink-0 text-xs text-gray-500 pt-0.5">
-          {addedDate}
         </div>
         <div className="hidden sm:flex w-40 shrink-0 items-center justify-end gap-2">
           {convertEditActions}

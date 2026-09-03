@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useProjects } from "../../hooks/useProjects";
 import { DeadlineRow } from "./DeadlineRow";
 import { SectionSubtotal, formatScore } from "./SectionSubtotal";
 import type { DeadlineSummary } from "../../types";
@@ -9,7 +10,7 @@ const PAGE = 10;
 /** Filter value meaning "every project". */
 const ALL = "";
 
-type SortField = "created_at" | "point_value" | "due_date";
+type SortField = "point_value" | "due_date";
 type SortDir = "asc" | "desc";
 
 interface DeadlinesSectionProps {
@@ -25,6 +26,8 @@ export function DeadlinesSection({
   open,
   onToggle,
 }: DeadlinesSectionProps) {
+  // The filter offers every project, so it can't be built from today's rows alone.
+  const { data: allProjects } = useProjects();
   const [visibleCount, setVisibleCount] = useState(PAGE);
   const [projectFilter, setProjectFilter] = useState(ALL);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({
@@ -39,15 +42,27 @@ export function DeadlinesSection({
   const subtotal = pending.reduce((sum, d) => sum + Number(d.score), 0);
   const subtotalColor = subtotal >= 0 ? "text-green-600" : "text-red-600";
 
-  // Only projects with something pending are worth offering. A project's own
-  // deadline row carries no project_id — it is the project.
-  const projectsById = new Map<string, string>();
+  // Rows first, so a project still shows up while the projects list is loading —
+  // and so a completed project that somehow still owes a task keeps its slot.
+  // A project's own deadline row carries no project_id: it is the project.
+  const namesById = new Map<string, string>();
+  const pendingById = new Map<string, number>();
   for (const d of pending) {
-    if (d.type === "project") projectsById.set(d.id, d.name);
-    else if (d.project_id)
-      projectsById.set(d.project_id, d.project_name ?? "Untitled project");
+    const pid = d.type === "project" ? d.id : d.project_id;
+    if (!pid) continue;
+    namesById.set(
+      pid,
+      d.type === "project" ? d.name : (d.project_name ?? "Untitled project"),
+    );
+    pendingById.set(pid, (pendingById.get(pid) ?? 0) + 1);
   }
-  const projects = [...projectsById].sort((a, b) => a[1].localeCompare(b[1]));
+  // Then every open project. One whose tasks are all done has nothing in today's
+  // list, but you should still be able to point the filter at it — the count in
+  // the option says it'll be empty before you pick it.
+  for (const p of allProjects ?? []) {
+    if (p.completed_at === null) namesById.set(p.id, p.name);
+  }
+  const projects = [...namesById].sort((a, b) => a[1].localeCompare(b[1]));
 
   // Finishing the last task of the filtered project empties the list out from
   // under the filter, so a filter that no longer matches anything falls back to All.
@@ -68,15 +83,13 @@ export function DeadlinesSection({
     setSort((prev) =>
       prev.field === field
         ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: field === "created_at" ? "desc" : "asc" },
+        : { field, dir: "asc" },
     );
   };
 
   const sorted = [...filtered].sort((a, b) => {
     let cmp: number;
-    if (sort.field === "created_at") {
-      cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    } else if (sort.field === "due_date") {
+    if (sort.field === "due_date") {
       const aD = a.due_date ? new Date(a.due_date).getTime() : Infinity;
       const bD = b.due_date ? new Date(b.due_date).getTime() : Infinity;
       cmp = aD - bD;
@@ -117,10 +130,10 @@ export function DeadlinesSection({
             }`}
             title="Show only one project's tasks"
           >
-            <option value={ALL}>All projects</option>
+            <option value={ALL}>All projects ({pending.length})</option>
             {projects.map(([id, name]) => (
               <option key={id} value={id}>
-                {name}
+                {name} ({pendingById.get(id) ?? 0})
               </option>
             ))}
           </select>
@@ -140,12 +153,6 @@ export function DeadlinesSection({
               className={`w-14 sm:w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === "due_date" ? "text-blue-600" : ""}`}
             >
               Due {sortIcon("due_date")}
-            </button>
-            <button
-              onClick={() => toggleSort("created_at")}
-              className={`w-16 sm:w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === "created_at" ? "text-blue-600" : ""}`}
-            >
-              Added {sortIcon("created_at")}
             </button>
             <div className="hidden sm:block w-40 shrink-0"></div>
             <button

@@ -3,7 +3,7 @@ import { TodoRow } from "./TodoRow";
 import { SectionSubtotal, formatScore } from "./SectionSubtotal";
 import type { TodoSummary } from "../../types";
 
-type SortField = "created_at" | "point_value" | "due_date";
+type SortField = "point_value" | "due_date";
 type SortDir = "asc" | "desc";
 
 interface TodosSectionProps {
@@ -29,15 +29,13 @@ export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSection
     setSort((prev) =>
       prev.field === field
         ? { field, dir: prev.dir === "asc" ? "desc" : "asc" }
-        : { field, dir: field === "created_at" ? "desc" : "asc" },
+        : { field, dir: "asc" },
     );
   };
 
   const sorted = [...pending].sort((a, b) => {
     let cmp: number;
-    if (sort.field === "created_at") {
-      cmp = new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-    } else if (sort.field === "due_date") {
+    if (sort.field === "due_date") {
       const aD = a.due_date ? new Date(a.due_date).getTime() : Infinity;
       const bD = b.due_date ? new Date(b.due_date).getTime() : Infinity;
       cmp = aD - bD;
@@ -75,12 +73,6 @@ export function TodosSection({ todos, viewedDate, open, onToggle }: TodosSection
               className={`w-14 sm:w-24 shrink-0 text-left hover:text-gray-700 ${sort.field === "due_date" ? "text-blue-600" : ""}`}
             >
               Due {sortIcon("due_date")}
-            </button>
-            <button
-              onClick={() => toggleSort("created_at")}
-              className={`w-16 sm:w-20 shrink-0 text-left hover:text-gray-700 ${sort.field === "created_at" ? "text-blue-600" : ""}`}
-            >
-              Added {sortIcon("created_at")}
             </button>
             <div className="hidden sm:block w-40 shrink-0"></div>
             <button
