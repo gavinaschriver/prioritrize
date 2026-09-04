@@ -5,6 +5,7 @@ import { urgencyRow, formatDueDate } from "../../lib/urgency";
 import { TaskDetailModal } from "../shared/TaskDetailModal";
 import { DeferredBadge } from "../shared/DeferredBadge";
 import { DueBadge } from "../shared/DueBadge";
+import { ActivateButton } from "../shared/ActivateButton";
 import type { DeadlineSummary } from "../../types";
 
 interface DeadlineRowProps {
@@ -66,6 +67,10 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
               <DeferredBadge effectiveDueDate={item.effective_due_date} />
             )}
             <DueBadge dueDate={item.effective_due_date} viewedDate={viewedDate} />
+            {/* Projects aren't worked on directly -- their tasks are. */}
+            {item.type === "task" && !item.completed_at && (
+              <ActivateButton type="project_task" id={item.id} className="mt-1 block" />
+            )}
             {item.type === "task" && item.project_name && item.project_id && (
               <button
                 onClick={(e) => { e.stopPropagation(); navigate(`/projects/${item.project_id}`); }}

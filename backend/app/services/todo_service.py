@@ -3,7 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from app.models.todo import TodoCreate, TodoUpdate, TodoOut
 from app.models.project import ProjectTaskOut
-from app.services import category_service
+from app.services import category_service, active_item_service
 from app.services.scoring_service import earliest_affected_day, record_deferral, rescore_from
 
 
@@ -97,6 +97,8 @@ async def complete_todo(conn: asyncpg.Connection, todo_id: UUID, user_id: str) -
     )
     if not row:
         raise HTTPException(status_code=404, detail="Todo not found")
+    # Finished work can't still be "in progress".
+    await active_item_service.release(conn, user_id, "todo", todo_id)
     return TodoOut(**dict(row))
 
 
@@ -132,6 +134,7 @@ async def delete_todo(
     if not before:
         raise HTTPException(status_code=404, detail="Todo not found")
 
+    await active_item_service.release(conn, user_id, "todo", todo_id)
     await conn.execute("DELETE FROM todo WHERE id = $1", todo_id)
     # The row is gone, so every day it earned or docked on has to be rescored.
     await _rescore_for(conn, user_id, tz_str, before)
@@ -173,6 +176,22 @@ async def convert_to_task(
             project_id, uid, todo["name"], todo["point_value"], todo["due_date"],
             todo["description"], todo["comment"], todo["completed_at"], todo["created_at"],
         )
+        # The work didn't stop, it just changed shape -- keep it active as the task.
+        was_active = await conn.fetchval(
+            """
+            SELECT 1 FROM active_item
+            WHERE user_id = $1 AND entity_type = 'todo' AND entity_id = $2
+            """,
+            uid, todo_id,
+        )
         await conn.execute("DELETE FROM todo WHERE id = $1", todo_id)
+        if was_active:
+            await conn.execute(
+                """
+                UPDATE active_item SET entity_type = 'project_task', entity_id = $2
+                WHERE user_id = $1
+                """,
+                uid, task["id"],
+            )
 
     return ProjectTaskOut(**dict(task))

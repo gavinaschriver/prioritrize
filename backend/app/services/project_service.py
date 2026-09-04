@@ -6,7 +6,7 @@ from app.models.project import (
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
-from app.services import category_service
+from app.services import category_service, active_item_service
 from app.models.todo import TodoOut
 from app.services.scoring_service import earliest_affected_day, record_deferral, rescore_from
 
@@ -337,6 +337,8 @@ async def complete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str) -
     )
     if not row:
         raise HTTPException(status_code=404, detail="Task not found")
+    # Finished work can't still be "in progress".
+    await active_item_service.release(conn, user_id, "project_task", task_id)
     return ProjectTaskOut(**dict(row))
 
 
@@ -372,6 +374,7 @@ async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, tz_
     if not before:
         raise HTTPException(status_code=404, detail="Task not found")
 
+    await active_item_service.release(conn, user_id, "project_task", task_id)
     await conn.execute("DELETE FROM project_task WHERE id = $1", task_id)
     # The row is gone, so every day it earned or docked on has to be rescored.
     await _rescore_for(conn, user_id, tz_str, before)
@@ -412,6 +415,22 @@ async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id:
             task["description"], task["comment"], category_id,
             task["completed_at"], task["created_at"],
         )
+        # The work didn't stop, it just changed shape -- keep it active as the todo.
+        was_active = await conn.fetchval(
+            """
+            SELECT 1 FROM active_item
+            WHERE user_id = $1 AND entity_type = 'project_task' AND entity_id = $2
+            """,
+            uid, task_id,
+        )
         await conn.execute("DELETE FROM project_task WHERE id = $1", task_id)
+        if was_active:
+            await conn.execute(
+                """
+                UPDATE active_item SET entity_type = 'todo', entity_id = $2
+                WHERE user_id = $1
+                """,
+                uid, todo["id"],
+            )
 
     return TodoOut(**dict(todo))

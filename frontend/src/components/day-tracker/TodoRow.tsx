@@ -5,6 +5,7 @@ import { TodoDetailModal } from "../shared/TodoDetailModal";
 import { DeferredBadge } from "../shared/DeferredBadge";
 import { DueBadge } from "../shared/DueBadge";
 import { CategoryChip } from "../shared/CategorySelect";
+import { ActivateButton } from "../shared/ActivateButton";
 import type { TodoSummary } from "../../types";
 
 interface TodoRowProps {
@@ -53,6 +54,9 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
               <DeferredBadge effectiveDueDate={item.effective_due_date} />
             )}
             <DueBadge dueDate={item.effective_due_date} viewedDate={viewedDate} />
+            {!item.completed_at && (
+              <ActivateButton type="todo" id={item.id} className="mt-1 block" />
+            )}
           </div>
           <div className="w-14 sm:w-24 shrink-0 text-xs text-gray-500 pt-0.5">
             {dueLabel ?? "—"}

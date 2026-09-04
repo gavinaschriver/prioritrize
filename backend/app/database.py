@@ -9,8 +9,8 @@ async def get_pool() -> asyncpg.Pool:
     if pool is None:
         pool = await asyncpg.create_pool(
             settings.database_url,
-            min_size=2,
-            max_size=10,
+            min_size=settings.db_pool_min_size,
+            max_size=settings.db_pool_max_size,
             statement_cache_size=0,  # Required for Supabase Session Pooler (PgBouncer)
         )
     return pool

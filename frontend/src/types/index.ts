@@ -277,3 +277,13 @@ export interface DayWrapUp {
   /** null means the day is still open for logging. */
   wrapped_up_at: string | null;
 }
+
+/** Which kinds of work can be "in progress". */
+export type ActiveEntityType = 'todo' | 'project_task';
+
+/** The single item in the bullpen. One per user, so activating swaps. */
+export interface ActiveItem {
+  entity_type: ActiveEntityType;
+  entity_id: string;
+  started_at: string;
+}

@@ -16,6 +16,8 @@ import { SpendingInput } from "../components/day-tracker/SpendingInput";
 import { SpendingLog } from "../components/day-tracker/SpendingLog";
 import { CombinedQueueSection } from "../components/day-tracker/CombinedQueueSection";
 import { DailyNotes } from "../components/day-tracker/DailyNotes";
+import { InProgress } from "../components/day-tracker/InProgress";
+import { useActiveItem } from "../hooks/useActiveItem";
 
 type SectionKey = "queue" | "deadlines" | "todos" | "goals" | "bonuses";
 
@@ -35,6 +37,7 @@ export function DayTrackerPage() {
     },
   );
   const { data: summary, isLoading, error } = useDaySummary(selectedDate);
+  const { data: activeItem } = useActiveItem();
 
   const isToday = selectedDate === getTodayStr();
 
@@ -65,6 +68,14 @@ export function DayTrackerPage() {
     d.setDate(d.getDate() - 1);
     setSelectedDate(d.toLocaleDateString("en-CA"));
   };
+
+  // Whatever is in the bullpen is hidden from the queue sections; CompletedToday
+  // still gets the unfiltered summary, since an active item is never completed.
+  const isActive = (type: "todo" | "project_task", id: string) =>
+    activeItem?.entity_type === type && activeItem.entity_id === id;
+  const queueTodos = summary?.todos.filter(t => !isActive("todo", t.id)) ?? [];
+  const queueDeadlines =
+    summary?.deadlines.filter(d => !(d.type === "task" && isActive("project_task", d.id))) ?? [];
 
   return (
     <div>
@@ -112,10 +123,19 @@ export function DayTrackerPage() {
             </div>
           </div>
 
+          {/* The active item is lifted out of the queues below so it appears
+              once, in the bullpen, rather than twice. */}
+          <InProgress
+            active={activeItem}
+            todos={summary.todos}
+            deadlines={summary.deadlines}
+            viewedDate={selectedDate}
+          />
+
           {hybridView ? (
             <CombinedQueueSection
-              todos={summary.todos}
-              deadlines={summary.deadlines}
+              todos={queueTodos}
+              deadlines={queueDeadlines}
               viewedDate={selectedDate}
               open={openSections.queue}
               onToggle={() => toggleSection("queue")}
@@ -123,13 +143,13 @@ export function DayTrackerPage() {
           ) : (
             <>
               <DeadlinesSection
-                deadlines={summary.deadlines}
+                deadlines={queueDeadlines}
                 viewedDate={selectedDate}
                 open={openSections.deadlines}
                 onToggle={() => toggleSection("deadlines")}
               />
               <TodosSection
-                todos={summary.todos}
+                todos={queueTodos}
                 viewedDate={selectedDate}
                 open={openSections.todos}
                 onToggle={() => toggleSection("todos")}
