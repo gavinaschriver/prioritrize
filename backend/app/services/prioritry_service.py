@@ -34,12 +34,12 @@ async def create_prioritry(user_id: str, data: PrioritryCreate, conn: asyncpg.Co
     row = await conn.fetchrow(
         """
         INSERT INTO prioritry (user_id, name, type_id, point_value, can_repeat, timeblock,
-                               comments_enabled)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+                               comments_enabled, description)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING *
         """,
         uid, data.name, data.type_id, data.point_value, data.can_repeat,
-        data.timeblock, data.comments_enabled,
+        data.timeblock, data.comments_enabled, data.description,
     )
     return PrioritryOut(**dict(row), type_name=type_row["name"])
 

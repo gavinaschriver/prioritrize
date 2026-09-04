@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useDailyNotes, useUpdateDailyNotes } from '../../hooks/useDailyNotes';
 import { Markdown } from '../shared/Markdown';
+import { RichTextEditor } from '../shared/RichTextEditor';
 import { Attachments } from '../shared/Attachments';
 
 interface Props {
@@ -13,7 +14,6 @@ export function DailyNotes({ selectedDate }: Props) {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Reset editing state when date changes
   useEffect(() => {
@@ -42,20 +42,6 @@ export function DailyNotes({ selectedDate }: Props) {
     setEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') handleCancel();
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave();
-  };
-
-  // Auto-grow textarea
-  useEffect(() => {
-    if (editing && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-      textareaRef.current.focus();
-    }
-  }, [editing, draft]);
-
   const isEmpty = !data?.content?.trim();
 
   return (
@@ -75,18 +61,15 @@ export function DailyNotes({ selectedDate }: Props) {
       <div className="bg-white rounded-lg border border-gray-200">
         {editing ? (
           <div className="p-4 space-y-3">
-            <textarea
-              ref={textareaRef}
+            <RichTextEditor
               value={draft}
-              onChange={e => {
-                setDraft(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
-              }}
-              onKeyDown={handleKeyDown}
+              onChange={setDraft}
               placeholder={"How did today go? What happened? What did you learn?\n\n- [ ] markdown works here: bullets, checklists, links"}
-              className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-500 min-h-[120px]"
               rows={6}
+              autoFocus
+              onEscape={handleCancel}
+              onSubmit={handleSave}
+              className="border-0"
             />
             <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
               <button

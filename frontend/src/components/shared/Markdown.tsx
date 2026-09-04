@@ -1,6 +1,25 @@
 import { createContext, useContext, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+
+/**
+ * Markdown has no underline, so the toolbar's U writes a literal <u> tag. That
+ * means raw HTML has to survive the pipeline -- and everything dangerous has to
+ * not. rehype-raw parses the tags, rehype-sanitize then enforces GitHub's
+ * allowlist with <u> added.
+ */
+const SCHEMA = {
+  ...defaultSchema,
+  // Only `u` is added. Sanitising sees the whole tree, not just the raw HTML, so
+  // narrowing the default list would also strip what the normal pipeline builds:
+  // the `contains-task-list` / `task-list-item` classes and the `checked` state
+  // that make checkboxes work, plus links and paragraphs. Verified against the
+  // real pipeline: <script> and javascript: hrefs are dropped, on* attributes
+  // are dropped, task lists and links come through intact.
+  tagNames: [...(defaultSchema.tagNames ?? []), 'u'],
+};
 
 /**
  * Which line of the markdown source the item being rendered starts on, so its
@@ -69,6 +88,7 @@ export function Markdown({ children, size = 'xs', className = '', onToggleTask }
     >
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
+        rehypePlugins={[rehypeRaw, [rehypeSanitize, SCHEMA]]}
         components={{
           // Soft line breaks are meaningful in notes people type by hand, so a
           // paragraph keeps the lines it was written with.
@@ -109,6 +129,7 @@ export function Markdown({ children, size = 'xs', className = '', onToggleTask }
           h6: props => <h6 className="font-semibold text-gray-700" {...props} />,
           strong: props => <strong className="font-semibold text-gray-800" {...props} />,
           del: props => <del className="text-gray-500" {...props} />,
+          u: props => <u {...props} />,
           code: props => (
             <code className="bg-gray-100 rounded px-1 py-0.5 font-mono text-[0.92em]" {...props} />
           ),

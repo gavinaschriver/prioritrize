@@ -18,6 +18,8 @@ class DayPrioritrySummary(BaseModel):
     can_repeat: bool
     comments_enabled: bool
     timeblock: int | None
+    #: Read-only here -- the detail modal shows it, the Dailies page edits it.
+    description: str | None = None
     entry_count: int
     total_value: Decimal
     entries: list[EntryBrief]
@@ -34,6 +36,7 @@ class TodoSummary(BaseModel):
     is_upcoming: bool
     description: str | None = None
     comment: str | None = None
+    category_id: UUID | None = None
 
     # The due date this day was actually scored against. Differs from due_date only
     # when the item was deferred out from under this day -- see _effective_due.

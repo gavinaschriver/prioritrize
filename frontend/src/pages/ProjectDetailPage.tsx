@@ -3,78 +3,67 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   useProject, useUpdateProject, useCompleteProject, useDeleteProject,
   useAddProjectUpdate, useEditProjectUpdate, useDeleteProjectUpdate,
-  useCreateProjectTask, useUpdateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
+  useCreateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
 } from '../hooks/useProjects';
 import type { Attachment, ProjectTask } from '../types';
 import { Markdown } from '../components/shared/Markdown';
+import { RichTextEditor } from '../components/shared/RichTextEditor';
 import { Attachments } from '../components/shared/Attachments';
 import { useAttachmentsByEntity } from '../hooks/useAttachments';
 import { CategorySelect, CategoryChip } from '../components/shared/CategorySelect';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
-import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
+import { TaskDetailModal } from '../components/shared/TaskDetailModal';
 import { formatDueDate } from '../lib/urgency';
-import { ConvertTaskToTodo } from '../components/shared/ConvertTaskToTodo';
 
 function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
-  const [editing, setEditing] = useState(false);
-  const [name, setName] = useState(task.name);
-  const [pts, setPts] = useState(String(task.point_value));
-  const [due, setDue] = useState(task.due_date ?? '');
-  const updateTask = useUpdateProjectTask(projectId);
+  // Tapping the row opens the detail sheet; the check stays a one-tap action.
+  const [open, setOpen] = useState(false);
   const completeTask = useCompleteProjectTask(projectId);
   const deleteTask = useDeleteProjectTask(projectId);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const pv = pts.trim() !== '' ? parseInt(pts) : 0;
-    await updateTask.mutateAsync({ taskId: task.id, data: { name, point_value: isNaN(pv) ? 0 : pv, due_date: due || null } });
-    setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <form onSubmit={handleSave} className="flex items-center gap-2 px-3 py-2 bg-blue-50 rounded-lg border border-blue-200 flex-wrap">
-        <input type="text" value={name} onChange={e => setName(e.target.value)} required autoFocus
-          className="flex-1 min-w-32 px-2 py-1 text-sm border border-gray-300 rounded" />
-        <input type="number" min={0} value={pts} onChange={e => setPts(e.target.value)} placeholder="pts"
-          className="w-14 px-2 py-1 text-sm border border-gray-300 rounded" />
-        <input type="date" value={due} onChange={e => setDue(e.target.value)}
-          className="w-36 px-2 py-1 text-sm border border-gray-300 rounded" />
-        <button type="submit" disabled={updateTask.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">Save</button>
-        <button type="button" onClick={() => { setName(task.name); setPts(String(task.point_value)); setDue(task.due_date ?? ''); setEditing(false); }}
-          className="text-xs text-gray-500 hover:underline">Cancel</button>
-      </form>
-    );
-  }
-
   return (
-    <div className={`px-3 py-2 rounded-lg border text-sm ${task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'}`}>
-      <div className="flex items-center gap-2">
-      <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-500' : 'text-gray-800'}`}>{task.name}</span>
-      <span className="text-xs text-gray-500 shrink-0">
-        {task.due_date ? `due ${formatDueDate(task.due_date)}` : 'no due date'}
-      </span>
-      {task.point_value > 0 && <span className="text-xs text-gray-500 font-mono shrink-0">{task.point_value}pts</span>}
-      <ConvertTaskToTodo projectId={projectId} taskId={task.id} />
-      {!task.completed_at && (
-        <button onClick={() => setEditing(true)} className="text-gray-500 hover:text-blue-500 text-sm shrink-0" title="Edit">✎</button>
-      )}
-      {!task.completed_at && (
-        <button onClick={() => completeTask.mutate(task.id)} disabled={completeTask.isPending}
-          className="w-7 h-7 flex items-center justify-center bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 disabled:opacity-40 shrink-0"
-          title="Mark complete">✓</button>
-      )}
-      <button onClick={() => deleteTask.mutate(task.id)} disabled={deleteTask.isPending}
-        className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0" title="Delete">✕</button>
+    <>
+      <div
+        onClick={() => setOpen(true)}
+        title="Open details"
+        className={`px-3 py-2 rounded-lg border text-sm cursor-pointer ${
+          task.completed_at ? 'bg-green-50 border-green-200' : 'bg-white border-gray-200'
+        }`}
+      >
+        <div className="flex items-center gap-2">
+          <span className={`flex-1 min-w-0 ${task.completed_at ? 'line-through text-gray-500' : 'text-gray-800'}`}>
+            {task.name}
+          </span>
+          <span className="text-xs text-gray-500 shrink-0">
+            {task.due_date ? `due ${formatDueDate(task.due_date)}` : 'no due date'}
+          </span>
+          {task.point_value > 0 && (
+            <span className="text-xs text-gray-500 font-mono shrink-0">{task.point_value}pts</span>
+          )}
+          {!task.completed_at && (
+            <button
+              onClick={e => { e.stopPropagation(); completeTask.mutate(task.id); }}
+              disabled={completeTask.isPending}
+              className="w-7 h-7 flex items-center justify-center bg-green-600 text-white rounded text-xs font-bold hover:bg-green-700 disabled:opacity-40 shrink-0"
+              title="Mark complete"
+            >
+              ✓
+            </button>
+          )}
+          <button
+            onClick={e => { e.stopPropagation(); deleteTask.mutate(task.id); }}
+            disabled={deleteTask.isPending}
+            className="text-xs text-red-400 hover:text-red-600 disabled:opacity-40 shrink-0"
+            title="Delete"
+          >
+            ✕
+          </button>
+        </div>
       </div>
-      <DescriptionAndComment
-        description={task.description}
-        comment={task.comment}
-        onSaveDescription={description => updateTask.mutate({ taskId: task.id, data: { description } })}
-        onSaveComment={comment => updateTask.mutate({ taskId: task.id, data: { comment } })}
-        attachTo={{ type: 'project_task', id: task.id }}
-      />
-    </div>
+      {open && (
+        <TaskDetailModal projectId={projectId} taskId={task.id} onClose={() => setOpen(false)} />
+      )}
+    </>
   );
 }
 
@@ -277,13 +266,7 @@ function UpdateEntry({
   if (editing) {
     return (
       <form onSubmit={handleSave} className="bg-white rounded-lg border border-blue-300 p-3 space-y-2">
-        <textarea
-          value={body}
-          onChange={e => setBody(e.target.value)}
-          rows={3}
-          autoFocus
-          className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-        />
+        <RichTextEditor value={body} onChange={setBody} rows={3} autoFocus />
         <div className="flex gap-2">
           <button type="submit" disabled={editUpdate.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">
             Save
@@ -481,17 +464,12 @@ export function ProjectDetailPage() {
             </div>
 
             <div>
-              <label className="text-xs text-gray-500">
-                Overview — markdown: <code className="bg-gray-100 px-1 rounded">- [ ] item</code> for checkboxes,{' '}
-                <code className="bg-gray-100 px-1 rounded">- item</code> for bullets,{' '}
-                <code className="bg-gray-100 px-1 rounded">~~text~~</code> for strikethrough, links autolink
-              </label>
-              <textarea
+              <label className="text-xs text-gray-500">Overview</label>
+              <RichTextEditor
                 value={overview}
-                onChange={e => setOverview(e.target.value)}
+                onChange={setOverview}
                 rows={8}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg font-mono"
-                placeholder="- [ ] Task one&#10;- [ ] Task two&#10;~~done thing~~"
+                placeholder="What this project is, and what it takes to finish it"
               />
             </div>
 
@@ -569,12 +547,11 @@ export function ProjectDetailPage() {
 
         <form onSubmit={handleAddUpdate} className="bg-white rounded-lg border border-gray-200 p-4 space-y-3">
           {updateError && <p className="text-red-600 text-xs">{updateError}</p>}
-          <textarea
+          <RichTextEditor
             value={updateBody}
-            onChange={e => setUpdateBody(e.target.value)}
+            onChange={setUpdateBody}
             rows={3}
             placeholder="Add an update..."
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
           <button
             type="submit"

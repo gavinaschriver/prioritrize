@@ -1,10 +1,12 @@
+import { useState } from 'react';
 import { useDeleteEntry, useUpdateEntryComment, useDecrementEntry, useIncrementEntry } from '../../hooks/useEntries';
-import { useUncompleteTodo, useUpdateTodo } from '../../hooks/useTodos';
-import { useUncompleteProjectTask, useUpdateProjectTask, useUncompleteProject } from '../../hooks/useProjects';
+import { useUncompleteTodo } from '../../hooks/useTodos';
+import { useUncompleteProjectTask, useUncompleteProject } from '../../hooks/useProjects';
 import { EditableComment } from './EditableComment';
-import { DescriptionAndComment } from '../shared/DescriptionAndComment';
+import { TodoDetailModal } from '../shared/TodoDetailModal';
+import { TaskDetailModal } from '../shared/TaskDetailModal';
 import { formatScore } from './SectionSubtotal';
-import type { AttachmentEntityType, DaySummary, DeadlineSummary, TodoSummary } from '../../types';
+import type { DaySummary, DeadlineSummary, TodoSummary } from '../../types';
 
 interface CompletedTodayProps {
   summary: DaySummary;
@@ -15,11 +17,9 @@ function CompletedRow({
   title,
   kind,
   points,
-  description,
   comment,
-  onSaveDescription,
   onSaveComment,
-  attachTo,
+  onOpen,
   onRemove,
   onDecrement,
   onIncrement,
@@ -29,12 +29,10 @@ function CompletedRow({
   title: string;
   kind?: React.ReactNode;
   points?: number;
-  description?: string | null;
   comment: string | null;
-  onSaveDescription?: (description: string | null) => void;
   onSaveComment?: (comment: string | null) => void;
-  /** Finishing something shouldn't put its files out of reach. */
-  attachTo?: { type: AttachmentEntityType; id: string };
+  /** Given, the row body opens the item's detail sheet. */
+  onOpen?: () => void;
   onRemove: () => void;
   onDecrement?: () => void;
   onIncrement?: () => void;
@@ -43,20 +41,16 @@ function CompletedRow({
 }) {
   return (
     <div className="flex items-start justify-between bg-white rounded-lg border border-gray-100 px-3 py-2">
-      <div className="flex-1 min-w-0">
+      <div
+        className={`flex-1 min-w-0 ${onOpen ? 'cursor-pointer' : ''}`}
+        onClick={onOpen}
+        title={onOpen ? 'Open details' : undefined}
+      >
         <p className="text-sm font-medium">
           {title}
           {kind && <span className="ml-2 text-xs text-gray-500 uppercase tracking-wide">{kind}</span>}
         </p>
-        {onSaveDescription && onSaveComment ? (
-          <DescriptionAndComment
-            description={description ?? null}
-            comment={comment}
-            onSaveDescription={onSaveDescription}
-            onSaveComment={onSaveComment}
-            attachTo={attachTo}
-          />
-        ) : onSaveComment ? (
+        {onSaveComment ? (
           <EditableComment value={comment} onSave={onSaveComment} />
         ) : comment ? (
           <p className="text-xs text-gray-500 italic mt-0.5">{comment}</p>
@@ -99,41 +93,43 @@ function CompletedRow({
 }
 
 function TodoEntry({ item }: { item: TodoSummary }) {
+  const [open, setOpen] = useState(false);
   const uncomplete = useUncompleteTodo();
-  const updateTodo = useUpdateTodo();
   return (
-    <CompletedRow
-      title={item.name}
-      kind="todo"
-      points={Number(item.score)}
-      description={item.description}
-      comment={item.comment}
-      onSaveDescription={description => updateTodo.mutate({ id: item.id, data: { description } })}
-      onSaveComment={comment => updateTodo.mutate({ id: item.id, data: { comment } })}
-      attachTo={{ type: 'todo', id: item.id }}
-      onRemove={() => uncomplete.mutate(item.id)}
-      removeDisabled={uncomplete.isPending}
-    />
+    <>
+      <CompletedRow
+        title={item.name}
+        kind="todo"
+        points={Number(item.score)}
+        comment={item.comment}
+        onOpen={() => setOpen(true)}
+        onRemove={() => uncomplete.mutate(item.id)}
+        removeDisabled={uncomplete.isPending}
+      />
+      {open && <TodoDetailModal todoId={item.id} onClose={() => setOpen(false)} />}
+    </>
   );
 }
 
 function TaskEntry({ item }: { item: DeadlineSummary }) {
+  const [open, setOpen] = useState(false);
   const projectId = item.project_id ?? item.id;
   const uncomplete = useUncompleteProjectTask(projectId);
-  const updateTask = useUpdateProjectTask(projectId);
   return (
-    <CompletedRow
-      title={item.name}
-      kind={item.project_name ? <>task · <span className="font-bold">{item.project_name}</span></> : 'task'}
-      points={Number(item.score)}
-      description={item.description}
-      comment={item.comment}
-      onSaveDescription={description => updateTask.mutate({ taskId: item.id, data: { description } })}
-      onSaveComment={comment => updateTask.mutate({ taskId: item.id, data: { comment } })}
-      attachTo={{ type: 'project_task', id: item.id }}
-      onRemove={() => uncomplete.mutate(item.id)}
-      removeDisabled={uncomplete.isPending}
-    />
+    <>
+      <CompletedRow
+        title={item.name}
+        kind={item.project_name ? <>task · <span className="font-bold">{item.project_name}</span></> : 'task'}
+        points={Number(item.score)}
+        comment={item.comment}
+        onOpen={() => setOpen(true)}
+        onRemove={() => uncomplete.mutate(item.id)}
+        removeDisabled={uncomplete.isPending}
+      />
+      {open && (
+        <TaskDetailModal projectId={projectId} taskId={item.id} onClose={() => setOpen(false)} />
+      )}
+    </>
   );
 }
 

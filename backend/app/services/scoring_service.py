@@ -110,6 +110,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             p.can_repeat,
             p.comments_enabled,
             p.timeblock,
+            p.description,
             t.name AS type_name
         FROM prioritry p
         JOIN type t ON t.id = p.type_id
@@ -155,6 +156,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             can_repeat=row["can_repeat"],
             comments_enabled=row["comments_enabled"],
             timeblock=row["timeblock"],
+            description=row["description"],
             entry_count=entry_count,
             total_value=total_value,
             entries=[
@@ -173,7 +175,8 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     # --- Todos ---
     todo_rows = await conn.fetch(
         """
-        SELECT id, name, point_value, due_date, completed_at, created_at, description, comment
+        SELECT id, name, point_value, due_date, completed_at, created_at, description, comment,
+               category_id
         FROM todo
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
@@ -194,6 +197,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"],
             score=score, is_upcoming=is_upcoming,
             description=t["description"], comment=t["comment"],
+            category_id=t["category_id"],
             effective_due_date=effective_due,
         ))
     todos_subtotal = sum(t.score for t in todos)

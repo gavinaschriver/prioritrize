@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { RichTextEditor } from '../shared/RichTextEditor';
 import { useCreateProject } from '../../hooks/useProjects';
 
 export function ProjectForm() {
@@ -78,12 +79,11 @@ export function ProjectForm() {
 
       <div>
         <label className="text-xs text-gray-500">Overview <span className="text-gray-500">(optional)</span></label>
-        <textarea
+        <RichTextEditor
           value={overview}
-          onChange={e => setOverview(e.target.value)}
+          onChange={setOverview}
           rows={3}
-          className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
-          placeholder="Describe the project... — markdown: - [ ] checklists, - bullets, links"
+          placeholder="Describe the project..."
         />
       </div>
 

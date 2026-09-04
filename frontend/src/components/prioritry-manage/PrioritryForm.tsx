@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { RichTextEditor } from '../shared/RichTextEditor';
 import { useCreatePrioritry, useUpdatePrioritry } from '../../hooks/usePrioritries';
 import { Tooltip } from '../shared/Tooltip';
 import type { Prioritry, PrioritryCreate } from '../../types';
@@ -18,6 +19,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
   const [canRepeat, setCanRepeat] = useState(false);
   const [timeblock, setTimeblock] = useState('');
   const [commentsEnabled, setCommentsEnabled] = useState(false);
+  const [description, setDescription] = useState('');
   const [error, setError] = useState('');
 
   const createPrioritry = useCreatePrioritry();
@@ -31,6 +33,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setCanRepeat(editing.can_repeat);
       setTimeblock(editing.timeblock?.toString() || '');
       setCommentsEnabled(editing.comments_enabled);
+      setDescription(editing.description ?? '');
     }
   }, [editing]);
 
@@ -51,6 +54,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       can_repeat: canRepeat,
       timeblock: timeblock ? parseInt(timeblock) : null,
       comments_enabled: commentsEnabled,
+      description: description.trim() || null,
     };
 
     try {
@@ -66,6 +70,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setCanRepeat(false);
       setTimeblock('');
       setCommentsEnabled(false);
+      setDescription('');
       onDone();
     } catch (err: any) {
       setError(err.message);
@@ -150,6 +155,21 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
           />
           Comments enabled?
         </label>
+      </div>
+
+      <div>
+        <label className="text-sm font-medium text-gray-700 block mb-1">
+          Description <span className="text-gray-500 font-normal">(optional)</span>
+        </label>
+        <RichTextEditor
+          value={description}
+          onChange={setDescription}
+          rows={4}
+          placeholder="What counts as done, links, a checklist of what the routine involves"
+        />
+        <p className="mt-1 text-xs text-gray-500">
+          Shown read-only when you open this daily from the tracker.
+        </p>
       </div>
 
       <div className="flex gap-2">

@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { CategorySelect, CategoryChip } from '../shared/CategorySelect';
-import { useTodos, useDeleteTodo, useUpdateTodo } from '../../hooks/useTodos';
-import { DescriptionAndComment } from '../shared/DescriptionAndComment';
-import { ConvertTodoToTask } from '../shared/ConvertTodoToTask';
+import { CategoryChip } from '../shared/CategorySelect';
+import { useTodos, useDeleteTodo } from '../../hooks/useTodos';
+import { TodoDetailModal } from '../shared/TodoDetailModal';
 import type { Todo } from '../../types';
 
 type SortField = 'created_at' | 'point_value' | 'due_date';
@@ -18,100 +17,24 @@ function formatDateOnly(dateStr: string) {
   return new Date(dateStr + 'T12:00:00').toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: '2-digit' });
 }
 
-interface InlineEditProps {
-  todo: Todo;
-  onDone: () => void;
-}
-
-function InlineEdit({ todo, onDone }: InlineEditProps) {
-  const [name, setName] = useState(todo.name);
-  const [pointValue, setPointValue] = useState(String(todo.point_value));
-  const [dueDate, setDueDate] = useState(todo.due_date ?? '');
-  const [categoryId, setCategoryId] = useState(todo.category_id ?? '');
-  const [error, setError] = useState('');
-  const updateTodo = useUpdateTodo();
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError('');
-    const parsed = parseInt(pointValue);
-    if (isNaN(parsed) || parsed < 0) {
-      setError('Must be >= 0');
-      return;
-    }
-    try {
-      await updateTodo.mutateAsync({
-        id: todo.id,
-        data: { name, point_value: parsed, due_date: dueDate || null, category_id: categoryId || null },
-      });
-      onDone();
-    } catch (err: any) {
-      setError(err.message);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSave} className="flex items-center gap-2 px-4 py-2 bg-blue-50 flex-wrap">
-      {error && <span className="text-xs text-red-600 w-full">{error}</span>}
-      <input
-        type="text"
-        value={name}
-        onChange={e => setName(e.target.value)}
-        required
-        className="flex-1 min-w-32 px-2 py-1 text-sm border border-gray-300 rounded"
-        autoFocus
-      />
-      <input
-        type="number"
-        min={0}
-        value={pointValue}
-        onChange={e => setPointValue(e.target.value)}
-        className="w-16 px-2 py-1 text-sm border border-gray-300 rounded"
-        placeholder="pts"
-      />
-      <input
-        type="date"
-        value={dueDate}
-        onChange={e => setDueDate(e.target.value)}
-        className="w-36 px-2 py-1 text-sm border border-gray-300 rounded"
-      />
-      <CategorySelect
-        value={categoryId}
-        onChange={setCategoryId}
-        compact
-        className="w-36 px-2 py-1 text-sm border border-gray-300 rounded bg-white"
-      />
-      <button type="submit" disabled={updateTodo.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">
-        Save
-      </button>
-      <button type="button" onClick={onDone} className="text-xs text-gray-500 hover:underline">
-        Cancel
-      </button>
-    </form>
-  );
-}
-
 interface TodoLineProps {
   todo: Todo;
   /** Whatever the rightmost date column holds for this list — added date, or completion date. */
   rightDate: string;
-  onEdit: () => void;
+  onOpen: () => void;
   onDelete: () => void;
   deleting: boolean;
 }
 
-function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps) {
-  const updateTodo = useUpdateTodo();
-
+function TodoLine({ todo, rightDate, onOpen, onDelete, deleting }: TodoLineProps) {
   return (
     <div className="px-4 py-2 hover:bg-gray-50">
-      <div className="flex items-center gap-2 cursor-pointer" onClick={onEdit}>
+      <div className="flex items-center gap-2 cursor-pointer" onClick={onOpen} title="Open details">
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium">{todo.name}</span>
           {todo.completed_at && <span className="ml-2 text-xs text-green-600">✓</span>}
           <CategoryChip categoryId={todo.category_id} className="ml-2" />
         </div>
-        <ConvertTodoToTask todoId={todo.id} />
         <span className="w-20 text-right text-xs text-gray-500">
           {todo.due_date ? formatDateOnly(todo.due_date) : '—'}
         </span>
@@ -125,14 +48,6 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
           Delete
         </button>
       </div>
-      {/* Sibling of the click-to-edit row, so editing a field never opens the row form. */}
-      <DescriptionAndComment
-        description={todo.description}
-        comment={todo.comment}
-        onSaveDescription={description => updateTodo.mutate({ id: todo.id, data: { description } })}
-        onSaveComment={comment => updateTodo.mutate({ id: todo.id, data: { comment } })}
-        attachTo={{ type: 'todo', id: todo.id }}
-      />
     </div>
   );
 }
@@ -140,7 +55,7 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
 export function TodoList() {
   const { data: todos, isLoading } = useTodos();
   const deleteTodo = useDeleteTodo();
-  const [editingId, setEditingId] = useState<string | null>(null);
+  const [openId, setOpenId] = useState<string | null>(null);
   const [sort, setSort] = useState<{ field: SortField; dir: SortDir }>({ field: 'due_date', dir: 'asc' });
 
   if (isLoading) return <p className="text-gray-500 text-sm">Loading...</p>;
@@ -221,19 +136,14 @@ export function TodoList() {
           )}
 
           {sortedUncompleted.map(t => (
-            <div key={t.id}>
-              {editingId === t.id ? (
-                <InlineEdit todo={t} onDone={() => setEditingId(null)} />
-              ) : (
-                <TodoLine
-                  todo={t}
-                  rightDate={formatTimestamp(t.created_at)}
-                  onEdit={() => setEditingId(t.id)}
-                  onDelete={() => deleteTodo.mutate(t.id)}
-                  deleting={deleteTodo.isPending}
-                />
-              )}
-            </div>
+            <TodoLine
+              key={t.id}
+              todo={t}
+              rightDate={formatTimestamp(t.created_at)}
+              onOpen={() => setOpenId(t.id)}
+              onDelete={() => deleteTodo.mutate(t.id)}
+              deleting={deleteTodo.isPending}
+            />
           ))}
         </div>
       </div>
@@ -256,22 +166,19 @@ export function TodoList() {
           )}
 
           {sortedCompleted.map(t => (
-            <div key={t.id}>
-              {editingId === t.id ? (
-                <InlineEdit todo={t} onDone={() => setEditingId(null)} />
-              ) : (
-                <TodoLine
-                  todo={t}
-                  rightDate={formatTimestamp(t.completed_at!)}
-                  onEdit={() => setEditingId(t.id)}
-                  onDelete={() => deleteTodo.mutate(t.id)}
-                  deleting={deleteTodo.isPending}
-                />
-              )}
-            </div>
+            <TodoLine
+              key={t.id}
+              todo={t}
+              rightDate={formatTimestamp(t.completed_at!)}
+              onOpen={() => setOpenId(t.id)}
+              onDelete={() => deleteTodo.mutate(t.id)}
+              deleting={deleteTodo.isPending}
+            />
           ))}
         </div>
       </div>
+
+      <TodoDetailModal todoId={openId} onClose={() => setOpenId(null)} />
     </div>
   );
 }

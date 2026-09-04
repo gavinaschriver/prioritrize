@@ -1,6 +1,7 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useScratchPad, useUpdateScratchPad } from '../../hooks/useScratchPad';
 import { Markdown } from '../shared/Markdown';
+import { RichTextEditor } from '../shared/RichTextEditor';
 
 export function ScratchPad() {
   const { data, isLoading } = useScratchPad();
@@ -8,7 +9,6 @@ export function ScratchPad() {
 
   const [editing, setEditing] = useState(false);
   const [draft, setDraft] = useState('');
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Sync draft when data loads
   useEffect(() => {
@@ -32,20 +32,6 @@ export function ScratchPad() {
     setEditing(false);
   };
 
-  const handleKeyDown = (e: React.KeyboardEvent) => {
-    if (e.key === 'Escape') handleCancel();
-    if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') handleSave();
-  };
-
-  // Auto-grow textarea
-  useEffect(() => {
-    if (editing && textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = textareaRef.current.scrollHeight + 'px';
-      textareaRef.current.focus();
-    }
-  }, [editing, draft]);
-
   const isEmpty = !data?.content?.trim();
 
   return (
@@ -65,18 +51,15 @@ export function ScratchPad() {
       <div className="bg-white rounded-lg border border-gray-200">
         {editing ? (
           <div className="p-4 space-y-3">
-            <textarea
-              ref={textareaRef}
+            <RichTextEditor
               value={draft}
-              onChange={e => {
-                setDraft(e.target.value);
-                e.target.style.height = 'auto';
-                e.target.style.height = e.target.scrollHeight + 'px';
-              }}
-              onKeyDown={handleKeyDown}
+              onChange={setDraft}
               placeholder={"# Ideas\n\n- [ ] thing to try\n- [ ] another idea\n\n**bold**, *italic*, ~~strikethrough~~, https://links"}
-              className="w-full text-sm font-mono border-0 outline-none resize-none text-gray-700 placeholder-gray-500 min-h-[120px]"
               rows={6}
+              autoFocus
+              onEscape={handleCancel}
+              onSubmit={handleSave}
+              className="border-0"
             />
             <div className="flex items-center gap-3 border-t border-gray-100 pt-3">
               <button

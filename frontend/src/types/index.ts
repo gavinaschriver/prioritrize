@@ -8,6 +8,8 @@ export interface Prioritry {
   can_repeat: boolean;
   timeblock: number | null;
   comments_enabled: boolean;
+  /** Standing notes on the routine itself, edited from the Dailies page. */
+  description: string | null;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -20,6 +22,7 @@ export interface PrioritryCreate {
   can_repeat: boolean;
   timeblock: number | null;
   comments_enabled: boolean;
+  description?: string | null;
 }
 
 export interface Entry {
@@ -46,6 +49,8 @@ export interface DayPrioritrySummary {
   can_repeat: boolean;
   comments_enabled: boolean;
   timeblock: number | null;
+  /** Standing notes on the routine. Read-only here — edited on the Dailies page. */
+  description: string | null;
   entry_count: number;
   total_value: number;
   entries: EntryBrief[];
@@ -82,6 +87,7 @@ export interface TodoSummary {
   description: string | null;
   /** How the doing of it actually went. */
   comment: string | null;
+  category_id: string | null;
   // The due date this day was actually scored against; differs from due_date only
   // when the item was deferred out from under this day.
   effective_due_date: string | null;

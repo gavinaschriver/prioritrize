@@ -10,6 +10,7 @@ class PrioritryCreate(BaseModel):
     can_repeat: bool = True
     timeblock: int | None = None
     comments_enabled: bool = False
+    description: str | None = None
 
     @field_validator("point_value")
     @classmethod
@@ -26,6 +27,7 @@ class PrioritryUpdate(BaseModel):
     can_repeat: bool | None = None
     timeblock: int | None = None
     comments_enabled: bool | None = None
+    description: str | None = None
 
     @field_validator("point_value")
     @classmethod
@@ -45,6 +47,8 @@ class PrioritryOut(BaseModel):
     can_repeat: bool
     timeblock: int | None
     comments_enabled: bool
+    #: Standing notes on the routine itself, edited from the Dailies page.
+    description: str | None
     is_active: bool
     created_at: datetime
     updated_at: datetime

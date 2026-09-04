@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useCreateEntry } from '../../hooks/useEntries';
 import type { DayPrioritrySummary } from '../../types';
 import { TagCommentInput } from './TagCommentInput';
+import { DailyDetailModal } from '../shared/DailyDetailModal';
 
 interface PrioritryRowProps {
   item: DayPrioritrySummary;
@@ -12,6 +13,7 @@ interface PrioritryRowProps {
 export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps) {
   const [comment, setComment] = useState('');
   const [blocks, setBlocks] = useState(1);
+  const [open, setOpen] = useState(false);
   const createEntry = useCreateEntry();
 
   const canAdd = item.can_repeat || item.entry_count === 0;
@@ -53,7 +55,11 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
   return (
     <div className={`border-b border-gray-100 py-2 ${rowBg}`}>
       <div className="flex items-center gap-1 sm:gap-2">
-        <div className="flex-1 min-w-0">
+        <div
+          className="flex-1 min-w-0 cursor-pointer"
+          onClick={() => setOpen(true)}
+          title="Open details"
+        >
           <span className="text-sm">{formatName()}</span>
         </div>
         {isSteppable ? (
@@ -109,6 +115,9 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
             onSubmit={canAdd ? handleAdd : undefined}
           />
         </div>
+      )}
+      {open && (
+        <DailyDetailModal item={item} isBonus={isBonus} onClose={() => setOpen(false)} />
       )}
     </div>
   );
