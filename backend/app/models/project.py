@@ -3,11 +3,30 @@ from datetime import date, datetime
 from uuid import UUID
 
 
+class ProjectCategoryCreate(BaseModel):
+    name: str
+
+
+class ProjectCategoryUpdate(BaseModel):
+    name: str
+
+
+class ProjectCategoryOut(BaseModel):
+    id: UUID
+    user_id: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    #: How many of the user's projects currently sit under this category.
+    project_count: int = 0
+
+
 class ProjectCreate(BaseModel):
     name: str
     point_value: int | None = Field(default=None, ge=0)
     due_date: date | None = None
     overview: str | None = None
+    category_id: UUID | None = None
 
 
 class ProjectUpdate(BaseModel):
@@ -15,6 +34,7 @@ class ProjectUpdate(BaseModel):
     point_value: int | None = Field(default=None, ge=0)
     due_date: date | None = None
     overview: str | None = None
+    category_id: UUID | None = None
 
 
 class ProjectReorder(BaseModel):
@@ -71,6 +91,7 @@ class ProjectOut(BaseModel):
     point_value: int | None
     due_date: date | None
     overview: str | None
+    category_id: UUID | None
     sort_order: int
     completed_at: datetime | None
     created_at: datetime

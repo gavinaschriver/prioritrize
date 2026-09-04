@@ -9,6 +9,7 @@ import type { Attachment, ProjectTask } from '../types';
 import { Markdown } from '../components/shared/Markdown';
 import { Attachments } from '../components/shared/Attachments';
 import { useAttachmentsByEntity } from '../hooks/useAttachments';
+import { useProjectCategories } from '../hooks/useProjectCategories';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
 import { formatDueDate } from '../lib/urgency';
@@ -328,6 +329,7 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: project, isLoading } = useProject(id!);
+  const { data: categories } = useProjectCategories();
   // One request covers every update on the page instead of one per update.
   const updateFiles = useAttachmentsByEntity('project_update');
   const updateProject = useUpdateProject();
@@ -340,6 +342,7 @@ export function ProjectDetailPage() {
   const [pointValue, setPointValue] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [overview, setOverview] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [saveError, setSaveError] = useState('');
   const [updateBody, setUpdateBody] = useState('');
   const [updateError, setUpdateError] = useState('');
@@ -350,6 +353,7 @@ export function ProjectDetailPage() {
       setPointValue(project.point_value != null ? String(project.point_value) : '');
       setDueDate(project.due_date ?? '');
       setOverview(project.overview ?? '');
+      setCategoryId(project.category_id ?? '');
     }
   }, [project]);
 
@@ -370,7 +374,13 @@ export function ProjectDetailPage() {
     try {
       await updateProject.mutateAsync({
         id: id!,
-        data: { name, point_value: parsedPv, due_date: dueDate || null, overview: overview || undefined },
+        data: {
+          name,
+          point_value: parsedPv,
+          due_date: dueDate || null,
+          overview: overview || undefined,
+          category_id: categoryId || null,
+        },
       });
       setEditing(false);
     } catch (err: any) {
@@ -392,6 +402,7 @@ export function ProjectDetailPage() {
     setPointValue(project.point_value != null ? String(project.point_value) : '');
     setDueDate(project.due_date ?? '');
     setOverview(project.overview ?? '');
+    setCategoryId(project.category_id ?? '');
     setSaveError('');
     setEditing(false);
   };
@@ -466,6 +477,25 @@ export function ProjectDetailPage() {
             </div>
 
             <div>
+              <label className="text-xs text-gray-500">Category <span className="text-gray-500">(optional)</span></label>
+              <select
+                value={categoryId}
+                onChange={e => setCategoryId(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"
+              >
+                <option value="">— No category —</option>
+                {categories?.map(c => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+              {!categories?.length && (
+                <p className="text-xs text-gray-500 mt-1">
+                  No categories yet — add them at the bottom of the Projects page.
+                </p>
+              )}
+            </div>
+
+            <div>
               <label className="text-xs text-gray-500">
                 Overview — markdown: <code className="bg-gray-100 px-1 rounded">- [ ] item</code> for checkboxes,{' '}
                 <code className="bg-gray-100 px-1 rounded">- item</code> for bullets,{' '}
@@ -508,6 +538,12 @@ export function ProjectDetailPage() {
                 : <span className="text-gray-500 italic">rolling (no due date)</span>
               }
               {project.completed_at && <span className="text-green-600">✓ completed</span>}
+              {(() => {
+                const category = categories?.find(c => c.id === project.category_id);
+                return category
+                  ? <span className="text-gray-600 bg-gray-100 rounded px-1.5">{category.name}</span>
+                  : <span className="text-gray-500 italic">uncategorized</span>;
+              })()}
             </div>
 
             {project.overview ? (

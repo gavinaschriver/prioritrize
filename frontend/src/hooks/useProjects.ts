@@ -20,7 +20,7 @@ export function useProject(id: string) {
 export function useCreateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (data: { name: string; point_value?: number | null; due_date?: string | null; overview?: string }) =>
+    mutationFn: (data: { name: string; point_value?: number | null; due_date?: string | null; overview?: string; category_id?: string | null }) =>
       api.post('/api/projects', data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -33,7 +33,7 @@ export function useCreateProject() {
 export function useUpdateProject() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number | null; due_date?: string | null; overview?: string } }) =>
+    mutationFn: ({ id, data }: { id: string; data: { name?: string; point_value?: number | null; due_date?: string | null; overview?: string; category_id?: string | null } }) =>
       api.put(`/api/projects/${id}`, data),
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['projects'] });

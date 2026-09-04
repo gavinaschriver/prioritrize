@@ -86,6 +86,19 @@ export interface TodoSummary {
   deferred: boolean;
 }
 
+/** An evergreen "parent epic" projects are filed under — a project is
+ *  "Install L-track", its category is "Vehicle Work". Categories outlive
+ *  the projects in them. */
+export interface ProjectCategory {
+  id: string;
+  user_id: string;
+  name: string;
+  created_at: string;
+  updated_at: string;
+  /** How many projects currently sit under this category. */
+  project_count: number;
+}
+
 export interface Project {
   id: string;
   user_id: string;
@@ -93,6 +106,7 @@ export interface Project {
   point_value: number | null;
   due_date: string | null;
   overview: string | null;
+  category_id: string | null;
   /** Manual position on the Projects page, low to high. */
   sort_order: number;
   completed_at: string | null;
