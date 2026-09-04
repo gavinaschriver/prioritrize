@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import rehypeSanitize, { defaultSchema } from 'rehype-sanitize';
+import { useItemRefNav } from './itemRefNav';
 
 /**
  * Markdown has no underline, so the toolbar's U writes a literal <u> tag. That
@@ -63,6 +64,69 @@ function toggleTaskOnLine(source: string, line: number): string | null {
   return lines.join('\n');
 }
 
+/**
+ * A reference to another todo or task: '#' plus at least four digits. Four is the
+ * floor because reference numbers start at 1000, which keeps '#1' and '#2026'
+ * apart from tags like '#gym' without a lookup — a '#' followed by letters is
+ * always a tag, a '#' followed by four or more digits is always a reference.
+ */
+const ITEM_REF = /#(\d{4,})/g;
+
+/**
+ * Split a run of text into plain strings and reference numbers. Applied to text
+ * nodes only, so a '#1042' inside a link's href or a code span is left alone.
+ */
+function splitRefs(text: string): (string | number)[] {
+  const out: (string | number)[] = [];
+  let last = 0;
+  for (const match of text.matchAll(ITEM_REF)) {
+    const at = match.index!;
+    if (at > last) out.push(text.slice(last, at));
+    out.push(Number(match[1]));
+    last = at + match[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+/** Renders '#1042' as a link that opens that item, leaving everything else be. */
+function WithRefs({ children }: { children: React.ReactNode }) {
+  const nav = useItemRefNav();
+  if (!nav) return <>{children}</>;
+
+  const render = (node: React.ReactNode, key?: React.Key): React.ReactNode => {
+    if (typeof node === 'string') {
+      const parts = splitRefs(node);
+      if (parts.length === 1 && typeof parts[0] === 'string') return node;
+      return (
+        <span key={key}>
+          {parts.map((part, i) =>
+            typeof part === 'string' ? (
+              part
+            ) : (
+              <button
+                key={i}
+                type="button"
+                // These bodies often sit inside a click-to-edit surface or a
+                // tappable card; following a reference shouldn't also trigger it.
+                onClick={e => { e.stopPropagation(); nav.open(part); }}
+                className="font-medium text-blue-600 hover:underline"
+                title={`Open #${part}`}
+              >
+                #{part}
+              </button>
+            ),
+          )}
+        </span>
+      );
+    }
+    if (Array.isArray(node)) return node.map((n, i) => render(n, i));
+    return node;
+  };
+
+  return <>{render(children)}</>;
+}
+
 interface MarkdownProps {
   children: string;
   /** Body text size. The rest of the scale follows it. */
@@ -92,7 +156,11 @@ export function Markdown({ children, size = 'xs', className = '', onToggleTask }
         components={{
           // Soft line breaks are meaningful in notes people type by hand, so a
           // paragraph keeps the lines it was written with.
-          p: props => <p className="whitespace-pre-wrap" {...props} />,
+          p: ({ children: kids, ...props }) => (
+            <p className="whitespace-pre-wrap" {...props}>
+              <WithRefs>{kids}</WithRefs>
+            </p>
+          ),
           ul: ({ className: c, ...props }) => (
             <ul
               className={
@@ -103,7 +171,9 @@ export function Markdown({ children, size = 'xs', className = '', onToggleTask }
           ),
           ol: props => <ol className="ml-4 list-decimal space-y-0.5" {...props} />,
           li: ({ className: c, node, children: kids, ...props }) => {
-            if (!c?.includes('task-list-item')) return <li {...props}>{kids}</li>;
+            if (!c?.includes('task-list-item')) {
+              return <li {...props}><WithRefs>{kids}</WithRefs></li>;
+            }
             const box = node?.children?.find(
               child => child.type === 'element' && child.tagName === 'input'
             );
@@ -114,7 +184,9 @@ export function Markdown({ children, size = 'xs', className = '', onToggleTask }
                 className={`flex items-start gap-1.5 ${done ? 'text-gray-500 line-through' : ''}`}
                 {...props}
               >
-                <TaskItemLine.Provider value={line != null ? line - 1 : null}>{kids}</TaskItemLine.Provider>
+                <TaskItemLine.Provider value={line != null ? line - 1 : null}>
+                  <WithRefs>{kids}</WithRefs>
+                </TaskItemLine.Provider>
               </li>
             );
           },

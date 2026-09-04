@@ -1,5 +1,7 @@
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { ItemRefProvider } from './components/shared/ItemRefContext';
+import { ItemRefHost } from './components/shared/ItemRefHost';
 import { LoginPage } from './pages/LoginPage';
 import { DayTrackerPage } from './pages/DayTrackerPage';
 import { ManagePrioritriesPage } from './pages/ManagePrioritriesPage';
@@ -23,6 +25,9 @@ function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
+        {/* Inside the router so a reference sheet can navigate; wraps every
+            route so "#1042" works from wherever it was written. */}
+        <ItemRefProvider>
         <Routes>
           <Route path="/login" element={<LoginPage />} />
           <Route
@@ -86,6 +91,8 @@ function App() {
             }
           />
         </Routes>
+        <ItemRefHost />
+        </ItemRefProvider>
       </BrowserRouter>
     </QueryClientProvider>
   );

@@ -6,6 +6,7 @@ import { DeferredBadge } from "../shared/DeferredBadge";
 import { DueBadge } from "../shared/DueBadge";
 import { CategoryChip } from "../shared/CategorySelect";
 import { ActivateButton } from "../shared/ActivateButton";
+import { RefNumber } from "../shared/RefNumber";
 import type { TodoSummary } from "../../types";
 
 interface TodoRowProps {
@@ -48,6 +49,7 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
       >
         <div className="flex items-start gap-1 sm:gap-2">
           <div className="flex-1 min-w-0">
+            <RefNumber number={item.ref_number} className="mr-1.5" />
             <span className="text-sm wrap-break-word">{item.name}</span>
             <CategoryChip categoryId={item.category_id} className="ml-2" />
             {item.deferred && (

@@ -6,7 +6,7 @@ from app.models.project import (
     ProjectOut, ProjectDetailOut, ProjectUpdateOut,
     ProjectTaskCreate, ProjectTaskUpdate, ProjectTaskOut,
 )
-from app.services import category_service, active_item_service
+from app.services import category_service, active_item_service, ref_service
 from app.models.todo import TodoOut
 from app.services.scoring_service import earliest_affected_day, record_deferral, rescore_from
 
@@ -30,7 +30,7 @@ async def _rescore_for(conn, user_id, tz_str, *rows):
 
 
 _PROJECT_COLS = "id, user_id, name, point_value, due_date, overview, category_id, sort_order, completed_at, created_at, updated_at"
-_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
+_TASK_COLS = "id, project_id, user_id, name, point_value, due_date, description, comment, ref_number, completed_at, created_at, updated_at"
 
 
 async def list_projects(conn: asyncpg.Connection, user_id: str) -> list[ProjectOut]:
@@ -275,13 +275,17 @@ async def create_task(conn: asyncpg.Connection, project_id: UUID, user_id: str, 
     )
     if not exists:
         raise HTTPException(status_code=404, detail="Project not found")
+    # Claimed after the check so a rejected request doesn't burn a number.
+    ref_number = await ref_service.next_ref_number(conn, uid)
     row = await conn.fetchrow(
         f"""
-        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, description, comment)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        INSERT INTO project_task (project_id, user_id, name, point_value, due_date, description,
+                                  comment, ref_number)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         RETURNING {_TASK_COLS}
         """,
         project_id, uid, data.name, data.point_value, data.due_date, data.description, data.comment,
+        ref_number,
     )
     return ProjectTaskOut(**dict(row))
 
@@ -381,7 +385,7 @@ async def delete_task(conn: asyncpg.Connection, task_id: UUID, user_id: str, tz_
     return {"deleted": True}
 
 
-_TODO_COLS = "id, user_id, name, point_value, due_date, description, comment, category_id, completed_at, created_at, updated_at"
+_TODO_COLS = "id, user_id, name, point_value, due_date, description, comment, category_id, ref_number, completed_at, created_at, updated_at"
 
 
 async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id: str) -> TodoOut:
@@ -407,13 +411,15 @@ async def convert_task_to_todo(conn: asyncpg.Connection, task_id: UUID, user_id:
         todo = await conn.fetchrow(
             f"""
             INSERT INTO todo
-                (user_id, name, point_value, due_date, description, comment, category_id, completed_at, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+                (user_id, name, point_value, due_date, description, comment, category_id,
+                 ref_number, completed_at, created_at)
+            VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
             RETURNING {_TODO_COLS}
             """,
             uid, task["name"], task["point_value"], task["due_date"],
             task["description"], task["comment"], category_id,
-            task["completed_at"], task["created_at"],
+            # The number follows the work, so "#1042" keeps resolving after a move.
+            task["ref_number"], task["completed_at"], task["created_at"],
         )
         # The work didn't stop, it just changed shape -- keep it active as the todo.
         was_active = await conn.fetchval(

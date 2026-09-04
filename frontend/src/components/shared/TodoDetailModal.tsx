@@ -5,6 +5,7 @@ import { Attachments } from './Attachments';
 import { CoreFieldsEditor, type CoreFields } from './DetailFields';
 import { ConvertTodoToTask } from './ConvertTodoToTask';
 import { DueBadge } from './DueBadge';
+import { RefNumber } from './RefNumber';
 
 /**
  * The Jira-ticket view of a todo: everything about it in one sheet, opened by
@@ -37,7 +38,12 @@ export function TodoDetailModal({
     <Modal
       open
       onClose={onClose}
-      title={todo?.name ?? 'Todo'}
+      title={
+        <span className="flex items-baseline gap-2">
+          <RefNumber number={todo?.ref_number ?? null} className="text-sm" />
+          <span>{todo?.name ?? 'Todo'}</span>
+        </span>
+      }
       subtitle={todo && (
         <div className="space-y-1">
           {!todo.completed_at && (

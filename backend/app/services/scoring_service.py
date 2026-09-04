@@ -176,7 +176,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     todo_rows = await conn.fetch(
         """
         SELECT id, name, point_value, due_date, completed_at, created_at, description, comment,
-               category_id
+               category_id, ref_number
         FROM todo
         WHERE user_id = $1 AND created_at < $2
         ORDER BY created_at ASC
@@ -197,7 +197,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             due_date=t["due_date"], completed_at=completed_at, created_at=t["created_at"],
             score=score, is_upcoming=is_upcoming,
             description=t["description"], comment=t["comment"],
-            category_id=t["category_id"],
+            category_id=t["category_id"], ref_number=t["ref_number"],
             effective_due_date=effective_due,
         ))
     todos_subtotal = sum(t.score for t in todos)
@@ -256,7 +256,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
     task_rows = await conn.fetch(
         """
         SELECT pt.id, pt.name, pt.point_value, pt.due_date, pt.completed_at, pt.created_at,
-               pt.description, pt.comment,
+               pt.description, pt.comment, pt.ref_number,
                p.id AS project_id, p.name AS project_name
         FROM project_task pt
         JOIN project p ON p.id = pt.project_id
@@ -284,6 +284,7 @@ async def compute_day_score(user_id: str, date_str: str, tz_str: str, conn: asyn
             point_value=pv, due_date=due_date, created_at=t["created_at"],
             completed_at=completed_at, score=score, is_upcoming=is_upcoming,
             description=t["description"], comment=t["comment"],
+            ref_number=t["ref_number"],
             effective_due_date=effective_due,
         ))
 

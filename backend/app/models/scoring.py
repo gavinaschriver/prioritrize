@@ -37,6 +37,7 @@ class TodoSummary(BaseModel):
     description: str | None = None
     comment: str | None = None
     category_id: UUID | None = None
+    ref_number: int | None = None
 
     # The due date this day was actually scored against. Differs from due_date only
     # when the item was deferred out from under this day -- see _effective_due.
@@ -67,6 +68,8 @@ class DeadlineSummary(BaseModel):
     is_upcoming: bool
     description: str | None = None
     comment: str | None = None
+    #: Tasks only; projects aren't referenceable.
+    ref_number: int | None = None
 
     # The due date this day was actually scored against. Differs from due_date only
     # when the item was deferred out from under this day -- see _effective_due.

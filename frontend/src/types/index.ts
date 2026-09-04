@@ -69,6 +69,8 @@ export interface Todo {
   /** Todos are free-radical micro projects, so they file under the same
    *  evergreen categories projects do. */
   category_id: string | null;
+  /** Short shared number others can point at as "#1042". */
+  ref_number: number | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -88,6 +90,7 @@ export interface TodoSummary {
   /** How the doing of it actually went. */
   comment: string | null;
   category_id: string | null;
+  ref_number: number | null;
   // The due date this day was actually scored against; differs from due_date only
   // when the item was deferred out from under this day.
   effective_due_date: string | null;
@@ -145,6 +148,8 @@ export interface ProjectTask {
   description: string | null;
   /** How the doing of it actually went. */
   comment: string | null;
+  /** Short shared number others can point at as "#1042". */
+  ref_number: number | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -171,6 +176,8 @@ export interface DeadlineSummary {
   description: string | null;
   /** How the doing of it actually went. */
   comment: string | null;
+  /** Tasks only; projects aren't referenceable. */
+  ref_number: number | null;
   // The due date this day was actually scored against; differs from due_date only
   // when the item was deferred out from under this day.
   effective_due_date: string | null;
@@ -286,4 +293,15 @@ export interface ActiveItem {
   entity_type: ActiveEntityType;
   entity_id: string;
   started_at: string;
+}
+
+/** What a "#1042" in someone's notes points at. */
+export interface ItemRef {
+  ref_number: number;
+  entity_type: ActiveEntityType;
+  entity_id: string;
+  name: string;
+  /** Set for tasks; the detail sheet needs it to load the parent project. */
+  project_id: string | null;
+  completed_at: string | null;
 }

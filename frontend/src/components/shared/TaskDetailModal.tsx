@@ -8,6 +8,7 @@ import { Attachments } from './Attachments';
 import { CoreFieldsEditor, type CoreFields } from './DetailFields';
 import { ConvertTaskToTodo } from './ConvertTaskToTodo';
 import { DueBadge } from './DueBadge';
+import { RefNumber } from './RefNumber';
 
 /** The detail sheet for a project task, opened from a project page or the tracker. */
 export function TaskDetailModal({
@@ -37,7 +38,12 @@ export function TaskDetailModal({
     <Modal
       open
       onClose={onClose}
-      title={task?.name ?? 'Task'}
+      title={
+        <span className="flex items-baseline gap-2">
+          <RefNumber number={task?.ref_number ?? null} className="text-sm" />
+          <span>{task?.name ?? 'Task'}</span>
+        </span>
+      }
       subtitle={task && (
         <div className="space-y-1">
           {project && <div className="text-xs text-gray-500">in {project.name}</div>}

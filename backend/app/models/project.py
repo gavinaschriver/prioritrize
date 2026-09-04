@@ -61,6 +61,8 @@ class ProjectTaskOut(BaseModel):
     due_date: date | None
     description: str | None
     comment: str | None
+    #: Short shared number others can point at as "#1042".
+    ref_number: int | None
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

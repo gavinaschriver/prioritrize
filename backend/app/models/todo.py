@@ -34,6 +34,8 @@ class TodoOut(BaseModel):
     description: str | None
     comment: str | None
     category_id: UUID | None
+    #: Short shared number others can point at as "#1042".
+    ref_number: int | None
     completed_at: datetime | None
     created_at: datetime
     updated_at: datetime

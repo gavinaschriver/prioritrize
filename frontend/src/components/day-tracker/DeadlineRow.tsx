@@ -6,6 +6,7 @@ import { TaskDetailModal } from "../shared/TaskDetailModal";
 import { DeferredBadge } from "../shared/DeferredBadge";
 import { DueBadge } from "../shared/DueBadge";
 import { ActivateButton } from "../shared/ActivateButton";
+import { RefNumber } from "../shared/RefNumber";
 import type { DeadlineSummary } from "../../types";
 
 interface DeadlineRowProps {
@@ -62,6 +63,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
       >
         <div className="flex items-start gap-1 sm:gap-2">
           <div className="flex-1 min-w-0">
+            <RefNumber number={item.ref_number} className="mr-1.5" />
             <span className="text-sm text-gray-900 wrap-break-word">{item.name}</span>
             {item.deferred && (
               <DeferredBadge effectiveDueDate={item.effective_due_date} />
