@@ -3,6 +3,7 @@ from uuid import UUID
 from fastapi import HTTPException
 from app.models.todo import TodoCreate, TodoUpdate, TodoOut
 from app.models.project import ProjectTaskOut
+from app.services import category_service
 from app.services.scoring_service import earliest_affected_day, record_deferral, rescore_from
 
 
@@ -25,7 +26,7 @@ async def _rescore_for(conn, user_id, tz_str, *rows):
     await rescore_from(user_id, start, tz_str, conn)
 
 
-_COLS = "id, user_id, name, point_value, due_date, description, comment, completed_at, created_at, updated_at"
+_COLS = "id, user_id, name, point_value, due_date, description, comment, category_id, completed_at, created_at, updated_at"
 
 
 async def list_todos(conn: asyncpg.Connection, user_id: str) -> list[TodoOut]:
@@ -39,13 +40,15 @@ async def list_todos(conn: asyncpg.Connection, user_id: str) -> list[TodoOut]:
 
 async def create_todo(conn: asyncpg.Connection, user_id: str, data: TodoCreate) -> TodoOut:
     uid = to_uuid(user_id)
+    await category_service.assert_owned(conn, data.category_id, uid)
     row = await conn.fetchrow(
         f"""
-        INSERT INTO todo (user_id, name, point_value, due_date, description, comment)
-        VALUES ($1, $2, $3, $4, $5, $6)
+        INSERT INTO todo (user_id, name, point_value, due_date, description, comment, category_id)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
         RETURNING {_COLS}
         """,
         uid, data.name, data.point_value, data.due_date, data.description, data.comment,
+        data.category_id,
     )
     return TodoOut(**dict(row))
 
@@ -65,6 +68,8 @@ async def update_todo(
     updates = data.model_dump(exclude_unset=True)
     if not updates:
         return TodoOut(**dict(before))
+    if "category_id" in updates:
+        await category_service.assert_owned(conn, updates["category_id"], uid)
 
     set_clauses = ", ".join(f"{k} = ${i+2}" for i, k in enumerate(updates))
     values = list(updates.values())

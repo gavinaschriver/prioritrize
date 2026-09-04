@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CategorySelect } from '../shared/CategorySelect';
 import { useCreateTodo } from '../../hooks/useTodos';
 import { TagCommentInput } from '../day-tracker/TagCommentInput';
 
@@ -7,6 +8,7 @@ export function TodoForm() {
   const [pointValue, setPointValue] = useState('5');
   const [dueDate, setDueDate] = useState('');
   const [description, setDescription] = useState('');
+  const [categoryId, setCategoryId] = useState('');
   const [error, setError] = useState('');
 
   const createTodo = useCreateTodo();
@@ -27,11 +29,14 @@ export function TodoForm() {
         point_value: parsed,
         due_date: dueDate || null,
         description: description.trim() || null,
+        category_id: categoryId || null,
       });
       setName('');
       setPointValue('5');
       setDueDate('');
       setDescription('');
+      // categoryId deliberately survives: todos get added in runs, and a run is
+      // usually all the same category.
     } catch (err: any) {
       setError(err.message);
     }
@@ -71,6 +76,11 @@ export function TodoForm() {
             className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg"
           />
         </div>
+      </div>
+
+      <div>
+        <label className="text-xs text-gray-500">Category <span className="text-gray-500">(optional)</span></label>
+        <CategorySelect value={categoryId} onChange={setCategoryId} />
       </div>
 
       <div>

@@ -1,12 +1,13 @@
 import asyncpg
 import json
 import logging
+from fastapi import HTTPException
 from uuid import UUID
 from decimal import Decimal
 from datetime import date as date_type, date as date_cls, timedelta
 from zoneinfo import ZoneInfo
 from app.utils.timezone import get_day_boundaries_utc, get_today_str
-from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, DeadlineSummary, BalanceOut, RecomputeOut
+from app.models.scoring import DaySummary, DayPrioritrySummary, EntryBrief, TodoSummary, DeadlineSummary, BalanceOut, RecomputeOut, WrapUpOut
 
 # Scoring semantics, recorded on every snapshot written.
 #   1 — original. An overdue item's penalty was forgiven once it was completed on
@@ -688,3 +689,51 @@ async def get_balance(user_id: str, tz_str: str, conn: asyncpg.Connection) -> Ba
         today_score=today_summary.daily_score,
         current_balance=past_total + today_summary.daily_score,
     )
+
+
+# --- Wrap-up ---
+
+async def get_wrap_up(user_id: str, date_str: str, conn: asyncpg.Connection) -> WrapUpOut:
+    """A day with no snapshot row yet has simply never been wrapped up."""
+    uid = to_uuid(user_id)
+    day = date_type.fromisoformat(date_str)
+    wrapped_at = await conn.fetchval(
+        "SELECT wrapped_up_at FROM daily_snapshot WHERE user_id = $1 AND date = $2",
+        uid, day,
+    )
+    return WrapUpOut(date=date_str, wrapped_up_at=wrapped_at)
+
+
+async def set_wrap_up(
+    user_id: str, date_str: str, tz_str: str, conn: asyncpg.Connection, wrapped: bool
+) -> WrapUpOut:
+    uid = to_uuid(user_id)
+    day = date_type.fromisoformat(date_str)
+
+    async def apply() -> WrapUpOut | None:
+        row = await conn.fetchrow(
+            """
+            UPDATE daily_snapshot
+            SET wrapped_up_at = CASE WHEN $3 THEN now() ELSE NULL END
+            WHERE user_id = $1 AND date = $2
+            RETURNING wrapped_up_at
+            """,
+            uid, day, wrapped,
+        )
+        return WrapUpOut(date=date_str, wrapped_up_at=row["wrapped_up_at"]) if row else None
+
+    result = await apply()
+    if result is not None:
+        return result
+
+    # No snapshot for that day yet. Score it the normal way rather than inventing a
+    # zero row -- the flag needs somewhere to live, but not at the cost of a wrong score.
+    if not wrapped:
+        # Nothing stored means nothing to clear.
+        return WrapUpOut(date=date_str, wrapped_up_at=None)
+
+    await upsert_snapshot(user_id, date_str, tz_str, conn)
+    result = await apply()
+    if result is None:
+        raise HTTPException(500, f"Could not record wrap-up for {date_str}")
+    return result

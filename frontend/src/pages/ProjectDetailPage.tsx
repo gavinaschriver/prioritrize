@@ -9,7 +9,7 @@ import type { Attachment, ProjectTask } from '../types';
 import { Markdown } from '../components/shared/Markdown';
 import { Attachments } from '../components/shared/Attachments';
 import { useAttachmentsByEntity } from '../hooks/useAttachments';
-import { useProjectCategories } from '../hooks/useProjectCategories';
+import { CategorySelect, CategoryChip } from '../components/shared/CategorySelect';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
 import { formatDueDate } from '../lib/urgency';
@@ -329,7 +329,6 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: project, isLoading } = useProject(id!);
-  const { data: categories } = useProjectCategories();
   // One request covers every update on the page instead of one per update.
   const updateFiles = useAttachmentsByEntity('project_update');
   const updateProject = useUpdateProject();
@@ -478,21 +477,7 @@ export function ProjectDetailPage() {
 
             <div>
               <label className="text-xs text-gray-500">Category <span className="text-gray-500">(optional)</span></label>
-              <select
-                value={categoryId}
-                onChange={e => setCategoryId(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg bg-white"
-              >
-                <option value="">— No category —</option>
-                {categories?.map(c => (
-                  <option key={c.id} value={c.id}>{c.name}</option>
-                ))}
-              </select>
-              {!categories?.length && (
-                <p className="text-xs text-gray-500 mt-1">
-                  No categories yet — add them at the bottom of the Projects page.
-                </p>
-              )}
+              <CategorySelect value={categoryId} onChange={setCategoryId} />
             </div>
 
             <div>
@@ -538,12 +523,9 @@ export function ProjectDetailPage() {
                 : <span className="text-gray-500 italic">rolling (no due date)</span>
               }
               {project.completed_at && <span className="text-green-600">✓ completed</span>}
-              {(() => {
-                const category = categories?.find(c => c.id === project.category_id);
-                return category
-                  ? <span className="text-gray-600 bg-gray-100 rounded px-1.5">{category.name}</span>
-                  : <span className="text-gray-500 italic">uncategorized</span>;
-              })()}
+              {project.category_id
+                ? <CategoryChip categoryId={project.category_id} />
+                : <span className="text-gray-500 italic">uncategorized</span>}
             </div>
 
             {project.overview ? (

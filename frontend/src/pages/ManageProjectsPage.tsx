@@ -1,6 +1,6 @@
 import { ProjectForm } from '../components/prioritry-manage/ProjectForm';
 import { ProjectList } from '../components/prioritry-manage/ProjectList';
-import { ProjectCategories } from '../components/prioritry-manage/ProjectCategories';
+import { Categories } from '../components/prioritry-manage/Categories';
 
 export function ManageProjectsPage() {
   return (
@@ -9,7 +9,7 @@ export function ManageProjectsPage() {
       <div className="space-y-6">
         <ProjectForm />
         <ProjectList />
-        <ProjectCategories />
+        <Categories />
       </div>
     </div>
   );

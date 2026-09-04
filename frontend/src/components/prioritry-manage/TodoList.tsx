@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { CategorySelect, CategoryChip } from '../shared/CategorySelect';
 import { useTodos, useDeleteTodo, useUpdateTodo } from '../../hooks/useTodos';
 import { DescriptionAndComment } from '../shared/DescriptionAndComment';
 import { ConvertTodoToTask } from '../shared/ConvertTodoToTask';
@@ -26,6 +27,7 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
   const [name, setName] = useState(todo.name);
   const [pointValue, setPointValue] = useState(String(todo.point_value));
   const [dueDate, setDueDate] = useState(todo.due_date ?? '');
+  const [categoryId, setCategoryId] = useState(todo.category_id ?? '');
   const [error, setError] = useState('');
   const updateTodo = useUpdateTodo();
 
@@ -38,7 +40,10 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
       return;
     }
     try {
-      await updateTodo.mutateAsync({ id: todo.id, data: { name, point_value: parsed, due_date: dueDate || null } });
+      await updateTodo.mutateAsync({
+        id: todo.id,
+        data: { name, point_value: parsed, due_date: dueDate || null, category_id: categoryId || null },
+      });
       onDone();
     } catch (err: any) {
       setError(err.message);
@@ -70,6 +75,12 @@ function InlineEdit({ todo, onDone }: InlineEditProps) {
         onChange={e => setDueDate(e.target.value)}
         className="w-36 px-2 py-1 text-sm border border-gray-300 rounded"
       />
+      <CategorySelect
+        value={categoryId}
+        onChange={setCategoryId}
+        compact
+        className="w-36 px-2 py-1 text-sm border border-gray-300 rounded bg-white"
+      />
       <button type="submit" disabled={updateTodo.isPending} className="text-xs text-blue-600 hover:underline disabled:opacity-50">
         Save
       </button>
@@ -98,6 +109,7 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
         <div className="flex-1 min-w-0">
           <span className="text-sm font-medium">{todo.name}</span>
           {todo.completed_at && <span className="ml-2 text-xs text-green-600">✓</span>}
+          <CategoryChip categoryId={todo.category_id} className="ml-2" />
         </div>
         <ConvertTodoToTask todoId={todo.id} />
         <span className="w-20 text-right text-xs text-gray-500">

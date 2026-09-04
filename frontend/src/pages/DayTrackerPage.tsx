@@ -4,6 +4,7 @@ import { useDaySummary } from "../hooks/useDaySummary";
 import { CurrentBalance } from "../components/day-tracker/CurrentBalance";
 import { DateNavigator } from "../components/day-tracker/DateNavigator";
 import { YesterdayPrompt } from "../components/day-tracker/YesterdayPrompt";
+import { DayWrapUpStatus } from "../components/day-tracker/DayWrapUpStatus";
 import { TodosSection } from "../components/day-tracker/TodosSection";
 import { GoalsSection } from "../components/day-tracker/GoalsSection";
 import { BonusesSection } from "../components/day-tracker/BonusesSection";
@@ -86,7 +87,10 @@ export function DayTrackerPage() {
 
       {summary && (
         <>
-          <div className="flex justify-end gap-2 mb-2">
+          <div className="flex justify-between items-center gap-2 mb-2">
+            {/* Only past days can be "finished" — today is still in progress. */}
+            <div>{!isToday && <DayWrapUpStatus date={selectedDate} />}</div>
+            <div className="flex gap-2">
             <button
               onClick={toggleAll}
               className="text-xs px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-500 hover:text-gray-600 transition-colors"
@@ -105,6 +109,7 @@ export function DayTrackerPage() {
             >
               Hybrid View
             </button>
+            </div>
           </div>
 
           {hybridView ? (

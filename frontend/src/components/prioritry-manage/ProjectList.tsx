@@ -1,11 +1,10 @@
 import { Link } from 'react-router-dom';
 import { useProjects, useDeleteProject, useReorderProjects } from '../../hooks/useProjects';
-import { useProjectCategories } from '../../hooks/useProjectCategories';
+import { CategoryChip } from '../shared/CategorySelect';
 import { useSortableList } from '../../hooks/useSortableList';
 
 export function ProjectList() {
   const { data: projects, isLoading } = useProjects();
-  const { data: categories } = useProjectCategories();
   const deleteProject = useDeleteProject();
   const reorderProjects = useReorderProjects();
 
@@ -20,7 +19,6 @@ export function ProjectList() {
   if (!projects?.length) return <p className="text-gray-500 text-sm">No projects yet. Add one above.</p>;
 
   const byId = new Map(projects.map(p => [p.id, p]));
-  const categoryName = new Map((categories ?? []).map(c => [c.id, c.name]));
 
   return (
     <div className="bg-white rounded-lg border border-gray-200 divide-y divide-gray-100">
@@ -57,11 +55,7 @@ export function ProjectList() {
               {p.completed_at && (
                 <span className="ml-2 text-xs text-green-600">✓ completed</span>
               )}
-              {p.category_id && categoryName.has(p.category_id) && (
-                <span className="ml-2 text-xs text-gray-600 bg-gray-100 rounded px-1.5 py-px">
-                  {categoryName.get(p.category_id)}
-                </span>
-              )}
+              <CategoryChip categoryId={p.category_id} className="ml-2" />
             </div>
             <button
               onClick={() => deleteProject.mutate(p.id)}

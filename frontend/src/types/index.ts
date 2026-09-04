@@ -61,6 +61,9 @@ export interface Todo {
   description: string | null;
   /** How the doing of it actually went. */
   comment: string | null;
+  /** Todos are free-radical micro projects, so they file under the same
+   *  evergreen categories projects do. */
+  category_id: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -86,10 +89,11 @@ export interface TodoSummary {
   deferred: boolean;
 }
 
-/** An evergreen "parent epic" projects are filed under — a project is
- *  "Install L-track", its category is "Vehicle Work". Categories outlive
- *  the projects in them. */
-export interface ProjectCategory {
+/** An evergreen "parent epic" work is filed under — a project is
+ *  "Install L-track", its category is "Vehicle Work". Todos take the same
+ *  categories; they're free-radical micro projects. Categories outlive the
+ *  things filed under them. */
+export interface Category {
   id: string;
   user_id: string;
   name: string;
@@ -97,6 +101,8 @@ export interface ProjectCategory {
   updated_at: string;
   /** How many projects currently sit under this category. */
   project_count: number;
+  /** How many todos currently sit under this category. */
+  todo_count: number;
 }
 
 export interface Project {
@@ -256,4 +262,12 @@ export interface Attachment {
   mime_type: string | null;
   size_bytes: number;
   created_at: string;
+}
+
+/** Whether the user has declared themselves finished logging a given day.
+ *  Stored per user, not per browser, so it dismisses everywhere at once. */
+export interface DayWrapUp {
+  date: string;
+  /** null means the day is still open for logging. */
+  wrapped_up_at: string | null;
 }

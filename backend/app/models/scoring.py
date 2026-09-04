@@ -123,3 +123,14 @@ class RecomputeOut(BaseModel):
     # None for rows written before breakdowns existed; those days can't be explained.
     previous_breakdown: dict | None
     breakdown: dict
+
+
+class WrapUpOut(BaseModel):
+    """Whether the user has declared themselves finished logging a given day.
+
+    Server-side so the state is the same on every device, rather than a
+    per-browser dismissal that has to be clicked away once per phone and laptop.
+    """
+    date: str
+    # None means the day is still open for logging.
+    wrapped_up_at: datetime | None
