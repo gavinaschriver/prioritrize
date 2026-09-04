@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useCreateEntry } from '../../hooks/useEntries';
 import type { DayPrioritrySummary } from '../../types';
-import { TagCommentInput } from './TagCommentInput';
 import { DailyDetailModal } from '../shared/DailyDetailModal';
 
 interface PrioritryRowProps {
@@ -11,7 +10,6 @@ interface PrioritryRowProps {
 }
 
 export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps) {
-  const [comment, setComment] = useState('');
   const [blocks, setBlocks] = useState(1);
   const [open, setOpen] = useState(false);
   const createEntry = useCreateEntry();
@@ -25,11 +23,9 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
   const handleAdd = () => {
     createEntry.mutate({
       prioritry_id: item.prioritry_id,
-      comment: item.comments_enabled && comment.trim() ? comment.trim() : undefined,
       target_date: selectedDate,
       ...(isSteppable && blocks > 1 ? { quantity: blocks } : {}),
     });
-    setComment('');
     setBlocks(1);
   };
 
@@ -106,18 +102,13 @@ export function PrioritryRow({ item, isBonus, selectedDate }: PrioritryRowProps)
           {totalValue > 0 ? '+' : ''}{totalValue % 1 === 0 ? totalValue : totalValue.toFixed(1)}
         </span>
       </div>
-      {item.comments_enabled && (
-        <div className="mt-1 ml-0">
-          <TagCommentInput
-            value={comment}
-            onChange={setComment}
-            placeholder="Comment or #tag,"
-            onSubmit={canAdd ? handleAdd : undefined}
-          />
-        </div>
-      )}
       {open && (
-        <DailyDetailModal item={item} isBonus={isBonus} onClose={() => setOpen(false)} />
+        <DailyDetailModal
+          item={item}
+          isBonus={isBonus}
+          selectedDate={selectedDate}
+          onClose={() => setOpen(false)}
+        />
       )}
     </div>
   );

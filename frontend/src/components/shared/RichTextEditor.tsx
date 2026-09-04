@@ -1,4 +1,6 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
+import { useTags } from '../../hooks/useTags';
+import type { TagSuggestion } from '../../types';
 
 /**
  * The markdown a toolbar button writes. Inline styles wrap the selection; block
@@ -61,23 +63,112 @@ function applyBlock(value: string, start: number, end: number, { prefix }: Block
     return 'none';
   };
   const wanted = prefix.includes('[') ? 'check' : 'bullet';
-  // Blank lines don't vote: a selection of "- a\n\n- b" still counts as all bulleted.
-  const allPrefixed = lines.every(l => l.trim() === '' || kindOf(l) === wanted);
+
+  // Blank lines don't vote, or a selection spanning a gap could never toggle off.
+  // With nothing but blank lines there is no marker to remove, so this is an add --
+  // which is the ordinary case: open an empty field, click the button, start typing.
+  const written = lines.filter(l => l.trim() !== '');
+  const adding = written.length === 0 || !written.every(l => kindOf(l) === wanted);
 
   const next = lines
     .map(line => {
-      if (line.trim() === '') return line;
+      // A blank separator inside a real selection stays blank; a wholly empty
+      // field gets the marker so there is something to type after.
+      if (line.trim() === '' && written.length > 0) return line;
       const indent = line.match(/^\s*/)?.[0] ?? '';
       const bare = bareOf(line).replace(BLOCK_PREFIX, '');
-      return allPrefixed ? indent + bare : indent + prefix + bare;
+      return adding ? indent + prefix + bare : indent + bare;
     })
     .join('\n');
 
+  // A caret stays a caret, parked after the marker so typing continues the line.
+  // Selecting the rewritten range instead would mean the next keystroke replaced it.
+  const collapsed = start === end;
   return {
     text: value.slice(0, lineStart) + next + value.slice(lineEnd),
-    from: lineStart,
+    from: collapsed ? lineStart + next.length : lineStart,
     to: lineStart + next.length,
   };
+}
+
+/**
+ * A line that is already a list item: its indent, its marker, and whatever it
+ * says. Covers bullets, checkboxes (either state) and numbered items.
+ */
+const LIST_LINE = /^(\s*)([-*+][ \t]+\[[ xX]\][ \t]+|[-*+][ \t]+|\d+[.)][ \t]+)(.*)$/;
+
+/** The marker the *next* line should get: a checkbox always starts unchecked,
+ *  and a numbered item counts on. */
+function nextMarker(marker: string): string {
+  const numbered = /^(\d+)([.)][ \t]+)$/.exec(marker);
+  if (numbered) return `${Number(numbered[1]) + 1}${numbered[2]}`;
+  return marker.replace(/\[[xX]\]/, '[ ]');
+}
+
+/**
+ * Enter inside a list. Returns the rewritten body and where the caret lands, or
+ * null to let the textarea insert an ordinary newline.
+ *
+ * On an item with text, this carries the marker down to the new line. On an item
+ * that is *only* a marker, it clears the marker instead -- otherwise Enter could
+ * never get you back out of a list.
+ */
+function continueList(value: string, start: number): { text: string; caret: number } | null {
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const line = value.slice(lineStart, start);
+  const match = LIST_LINE.exec(line);
+  if (!match) return null;
+
+  const [, indent, marker, content] = match;
+  if (content.trim() === '') {
+    const text = value.slice(0, lineStart) + indent + value.slice(start);
+    return { text, caret: lineStart + indent.length };
+  }
+
+  const insert = '\n' + indent + nextMarker(marker);
+  return { text: value.slice(0, start) + insert + value.slice(start), caret: start + insert.length };
+}
+
+/**
+ * Backspace at the end of a bare marker takes the whole marker, not one space at
+ * a time -- so an auto-inserted bullet you didn't want goes in one keystroke and
+ * the line returns to free-form typing.
+ */
+function removeMarker(value: string, start: number): { text: string; caret: number } | null {
+  const lineStart = value.lastIndexOf('\n', start - 1) + 1;
+  const line = value.slice(lineStart, start);
+  const match = LIST_LINE.exec(line);
+  if (!match) return null;
+
+  const [, indent, , content] = match;
+  // Only when the caret sits right after the marker with nothing typed after it.
+  if (content !== '') return null;
+  const text = value.slice(0, lineStart) + indent + value.slice(start);
+  return { text, caret: lineStart + indent.length };
+}
+
+const MAX_SUGGESTIONS = 8;
+const NO_TAGS: TagSuggestion[] = [];
+
+/**
+ * '#tag' is a tag; '# heading' and '## heading' are markdown. Mirrors the rule
+ * TagCommentInput uses, so both inputs agree on what a tag looks like.
+ */
+const isTagPart = (part: string) => part.startsWith('#') && !/^#[#\s]/.test(part);
+
+/**
+ * The tag being typed: the last ', '-separated segment of the current line, if
+ * it reads as a tag. Segment-based rather than word-based because a tag can hold
+ * spaces -- "#long walk, " is one tag.
+ */
+function pendingTag(value: string, caret: number): { query: string; from: number } | null {
+  const lineStart = value.lastIndexOf('\n', caret - 1) + 1;
+  const line = value.slice(lineStart, caret);
+  const cut = line.lastIndexOf(', ');
+  const segStart = cut === -1 ? lineStart : lineStart + cut + 2;
+  const segment = value.slice(segStart, caret);
+  if (!isTagPart(segment)) return null;
+  return { query: segment.slice(1).trim().toLowerCase(), from: segStart };
 }
 
 interface RichTextEditorProps {
@@ -113,6 +204,30 @@ export function RichTextEditor({
 }: RichTextEditorProps) {
   const ref = useRef<HTMLTextAreaElement | null>(null);
   const pendingRange = useRef<{ from: number; to: number } | null>(null);
+
+  const { data } = useTags();
+  const allTags = data ?? NO_TAGS;
+  const [caret, setCaret] = useState(0);
+  const [highlight, setHighlight] = useState(0);
+  const [dismissed, setDismissed] = useState(false);
+  const [focused, setFocused] = useState(false);
+
+  const pending = focused && !dismissed ? pendingTag(value, caret) : null;
+  const matches = pending === null
+    ? NO_TAGS
+    : allTags.filter(t => t.tag.toLowerCase().includes(pending.query)).slice(0, MAX_SUGGESTIONS);
+  const showSuggestions = pending !== null && matches.length > 0;
+
+  /** Replace the half-typed segment with the finished tag, ready for the next one. */
+  const commitTag = (tag: string) => {
+    if (!pending) return;
+    const insert = `#${tag}, `;
+    const next = value.slice(0, pending.from) + insert + value.slice(caret);
+    const at = pending.from + insert.length;
+    pendingRange.current = { from: at, to: at };
+    setDismissed(false);
+    onChange(next);
+  };
 
   // Grow with the content so a long body isn't written through a porthole.
   useEffect(() => {
@@ -166,9 +281,68 @@ export function RichTextEditor({
       <textarea
         ref={ref}
         value={value}
-        onChange={e => onChange(e.target.value)}
-        onBlur={onBlur}
+        onChange={e => {
+          setCaret(e.target.selectionStart);
+          setDismissed(false);
+          onChange(e.target.value);
+        }}
+        onSelect={e => setCaret(e.currentTarget.selectionStart)}
+        onFocus={e => { setFocused(true); setCaret(e.currentTarget.selectionStart); }}
+        onBlur={() => {
+          // Let a click on a suggestion land before the list unmounts.
+          setTimeout(() => setFocused(false), 120);
+          onBlur?.();
+        }}
         onKeyDown={e => {
+          const el = e.currentTarget;
+          const collapsed = el.selectionStart === el.selectionEnd;
+
+          if (showSuggestions) {
+            if (e.key === 'ArrowDown') {
+              e.preventDefault();
+              setHighlight(h => (h + 1) % matches.length);
+              return;
+            }
+            if (e.key === 'ArrowUp') {
+              e.preventDefault();
+              setHighlight(h => (h - 1 + matches.length) % matches.length);
+              return;
+            }
+            if (e.key === 'Enter' || e.key === 'Tab') {
+              e.preventDefault();
+              commitTag(matches[Math.min(highlight, matches.length - 1)].tag);
+              setHighlight(0);
+              return;
+            }
+            if (e.key === 'Escape') {
+              // Dismisses the list only — the editor stays open.
+              e.preventDefault();
+              setDismissed(true);
+              return;
+            }
+          }
+
+          // List continuation only makes sense for a plain caret; with a range
+          // selected, Enter and Backspace mean "replace this".
+          if (e.key === 'Enter' && collapsed && !e.metaKey && !e.ctrlKey && !e.shiftKey) {
+            const result = continueList(value, el.selectionStart);
+            if (result) {
+              e.preventDefault();
+              pendingRange.current = { from: result.caret, to: result.caret };
+              onChange(result.text);
+              return;
+            }
+          }
+          if (e.key === 'Backspace' && collapsed) {
+            const result = removeMarker(value, el.selectionStart);
+            if (result) {
+              e.preventDefault();
+              pendingRange.current = { from: result.caret, to: result.caret };
+              onChange(result.text);
+              return;
+            }
+          }
+
           if (e.key === 'Escape' && onEscape) {
             e.preventDefault();
             onEscape();
@@ -183,6 +357,27 @@ export function RichTextEditor({
         placeholder={placeholder}
         className="w-full resize-none px-3 py-2 text-sm outline-none"
       />
+      {showSuggestions && (
+        <ul className="max-h-40 overflow-y-auto border-t border-gray-200 bg-white text-sm">
+          {matches.map((t, i) => (
+            <li key={t.tag}>
+              <button
+                type="button"
+                // Keep focus in the textarea so the caret stays put.
+                onMouseDown={e => e.preventDefault()}
+                onClick={() => { commitTag(t.tag); setHighlight(0); }}
+                onMouseEnter={() => setHighlight(i)}
+                className={`flex w-full items-center justify-between px-3 py-1.5 text-left ${
+                  i === Math.min(highlight, matches.length - 1) ? 'bg-blue-50 text-blue-700' : 'text-gray-700'
+                }`}
+              >
+                <span>#{t.tag}</span>
+                <span className="text-xs text-gray-500">{t.count}</span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

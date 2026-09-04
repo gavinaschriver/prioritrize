@@ -2,6 +2,36 @@ import { PrioritryRow } from "./PrioritryRow";
 import { SectionSubtotal, formatScore } from "./SectionSubtotal";
 import type { DayPrioritrySummary } from "../../types";
 
+/** One labelled run of goal rows. Only rendered when it has something in it,
+ *  so a list of all repeatables doesn't grow a lone empty heading. */
+function GoalGroup({
+  label,
+  goals,
+  selectedDate,
+  spaced = false,
+}: {
+  label: string;
+  goals: DayPrioritrySummary[];
+  selectedDate: string;
+  spaced?: boolean;
+}) {
+  return (
+    <div className={spaced ? "mt-4" : ""}>
+      <h4 className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 mb-1">
+        {label} <span className="font-normal">({goals.length})</span>
+      </h4>
+      {goals.map((g) => (
+        <PrioritryRow
+          key={g.prioritry_id}
+          item={g}
+          isBonus={false}
+          selectedDate={selectedDate}
+        />
+      ))}
+    </div>
+  );
+}
+
 interface GoalsSectionProps {
   goals: DayPrioritrySummary[];
   subtotal: number;
@@ -18,6 +48,9 @@ export function GoalsSection({
   onToggle,
 }: GoalsSectionProps) {
   const subtotalColor = subtotal >= 0 ? "text-green-600" : "text-red-600";
+
+  const repeatable = goals.filter((g) => g.can_repeat);
+  const onceDaily = goals.filter((g) => !g.can_repeat);
 
   return (
     <div className="mb-6">
@@ -49,14 +82,24 @@ export function GoalsSection({
               No goals yet. Add some in Manage.
             </p>
           )}
-          {goals.map((g) => (
-            <PrioritryRow
-              key={g.prioritry_id}
-              item={g}
-              isBonus={false}
+          {/* Repeatables are the ones you come back to through the day, so they
+              sit on top; the one-and-dones are a checklist you clear once. */}
+          {repeatable.length > 0 && (
+            <GoalGroup
+              label="Repeatable"
+              goals={repeatable}
               selectedDate={selectedDate}
             />
-          ))}
+          )}
+          {onceDaily.length > 0 && (
+            <GoalGroup
+              label="Once a day"
+              goals={onceDaily}
+              // No divider above the first group on screen.
+              spaced={repeatable.length > 0}
+              selectedDate={selectedDate}
+            />
+          )}
           <SectionSubtotal label="Today's Goals Score" value={subtotal} />
         </>
       )}

@@ -13,25 +13,44 @@ from app.services.entry_service import to_uuid
 # This is slightly looser than entry_service.parse_tags(), which stops at the
 # first non-'#' segment; SQL accepts a '#part' anywhere in the text. For a
 # suggestion list that's harmless — it only ever offers more candidates.
-_LIST_TAGS_SQL = """
+# Only entries and spending explode their tags into tables (entry_tag, spend_tag),
+# synced by the application layer. Every other entity keeps its tags inside the
+# raw text, so they get parsed here instead: any ', '-separated segment starting
+# with '#' counts. concat_ws skips NULLs, so a row with only one field set still
+# works. The unnest/string_to_array shape is the one proven by the entry_tag
+# backfill in 20260421000000_add_entry_tags.sql.
+#
+# This is slightly looser than entry_service.parse_tags(), which stops at the
+# first non-'#' segment; SQL accepts a '#part' anywhere in the text. For a
+# suggestion list that's harmless — it only ever offers more candidates.
+_TEXT_TAG_SOURCES = [
+    ("todo", "concat_ws(', ', x.description, x.comment)"),
+    ("project_task", "concat_ws(', ', x.description, x.comment)"),
+    ("project", "concat_ws(', ', x.name, x.overview)"),
+    ("project_update", "x.body"),
+    ("daily_notes", "x.content"),
+    ("prioritry", "x.description"),
+    ("scratch_pad", "x.content"),
+]
+
+_TEXT_TAG_SQL = "\n    UNION ALL\n".join(
+    f"""
+    SELECT trim(substr(p.part, 2))
+    FROM {table} x
+    CROSS JOIN LATERAL unnest(string_to_array({expr}, ', ')) AS p(part)
+    WHERE x.user_id = $1
+      AND p.part LIKE '#%' AND length(trim(substr(p.part, 2))) > 0
+"""
+    for table, expr in _TEXT_TAG_SOURCES
+)
+
+_LIST_TAGS_SQL = f"""
 WITH all_tags AS (
     SELECT tag FROM entry_tag WHERE user_id = $1
     UNION ALL
     SELECT tag FROM spend_tag WHERE user_id = $1
     UNION ALL
-    SELECT trim(substr(p.part, 2))
-    FROM todo t
-    CROSS JOIN LATERAL unnest(string_to_array(
-        concat_ws(', ', t.description, t.comment), ', ')) AS p(part)
-    WHERE t.user_id = $1
-      AND p.part LIKE '#%' AND length(trim(substr(p.part, 2))) > 0
-    UNION ALL
-    SELECT trim(substr(p.part, 2))
-    FROM project_task pt
-    CROSS JOIN LATERAL unnest(string_to_array(
-        concat_ws(', ', pt.description, pt.comment), ', ')) AS p(part)
-    WHERE pt.user_id = $1
-      AND p.part LIKE '#%' AND length(trim(substr(p.part, 2))) > 0
+{_TEXT_TAG_SQL}
 )
 SELECT tag, COUNT(*) AS count
 FROM all_tags
