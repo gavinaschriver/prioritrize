@@ -2,6 +2,8 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../lib/api';
 
 interface DailyNotesData {
+  /** The note row's own id — what its attachments hang on. */
+  id: string;
   content: string;
   date: string;
   updated_at: string;

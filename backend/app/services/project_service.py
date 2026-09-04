@@ -64,7 +64,7 @@ async def get_project(conn: asyncpg.Connection, project_id: UUID, user_id: str) 
         SELECT id, project_id, user_id, body, created_at
         FROM project_update
         WHERE project_id = $1
-        ORDER BY created_at ASC
+        ORDER BY created_at DESC
         """,
         project_id,
     )

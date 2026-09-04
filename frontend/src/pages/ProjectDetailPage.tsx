@@ -5,8 +5,10 @@ import {
   useAddProjectUpdate, useEditProjectUpdate, useDeleteProjectUpdate,
   useCreateProjectTask, useUpdateProjectTask, useCompleteProjectTask, useDeleteProjectTask,
 } from '../hooks/useProjects';
-import type { ProjectTask } from '../types';
+import type { Attachment, ProjectTask } from '../types';
 import { Markdown } from '../components/shared/Markdown';
+import { Attachments } from '../components/shared/Attachments';
+import { useAttachmentsByEntity } from '../hooks/useAttachments';
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 import { DescriptionAndComment } from '../components/shared/DescriptionAndComment';
 import { formatDueDate } from '../lib/urgency';
@@ -69,6 +71,7 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
         comment={task.comment}
         onSaveDescription={description => updateTask.mutate({ taskId: task.id, data: { description } })}
         onSaveComment={comment => updateTask.mutate({ taskId: task.id, data: { comment } })}
+        attachTo={{ type: 'project_task', id: task.id }}
       />
     </div>
   );
@@ -76,8 +79,8 @@ function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) 
 
 type TaskSortField = 'due_date' | 'created_at';
 
-/** Uncompleted first (undated last within them), then completed, most recent first. */
-function sortTasks(tasks: ProjectTask[], field: TaskSortField, dir: 'asc' | 'desc'): ProjectTask[] {
+/** Open tasks in the chosen order, undated last whichever way it points. */
+function sortOpenTasks(tasks: ProjectTask[], field: TaskSortField, dir: 'asc' | 'desc'): ProjectTask[] {
   const compare = (a: ProjectTask, b: ProjectTask) => {
     let cmp: number;
     if (field === 'due_date') {
@@ -95,11 +98,58 @@ function sortTasks(tasks: ProjectTask[], field: TaskSortField, dir: 'asc' | 'des
     return dir === 'asc' ? cmp : -cmp;
   };
 
-  const uncompleted = tasks.filter(t => t.completed_at === null).sort(compare);
-  const completed = tasks
-    .filter(t => t.completed_at !== null)
-    .sort((a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime());
-  return [...uncompleted, ...completed];
+  return [...tasks].sort(compare);
+}
+
+/** Most recently finished first — the useful order for a list you only open to check. */
+function sortCompletedTasks(tasks: ProjectTask[]): ProjectTask[] {
+  return [...tasks].sort(
+    (a, b) => new Date(b.completed_at!).getTime() - new Date(a.completed_at!).getTime()
+  );
+}
+
+/** One collapsible group of task rows. Both groups start closed so the page opens
+ *  on the project itself and the form for adding to it, not on a wall of tasks. */
+function TaskGroup({
+  label,
+  tasks,
+  projectId,
+  emptyLabel,
+  children,
+}: {
+  label: string;
+  tasks: ProjectTask[];
+  projectId: string;
+  emptyLabel: string;
+  children?: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+
+  return (
+    <div className="mb-4">
+      <div className="flex items-center gap-2 mb-2">
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
+        >
+          <span>{open ? '▾' : '▸'}</span>
+          <span>{label}</span>
+          <span className="text-gray-500 font-mono normal-case">({tasks.length})</span>
+        </button>
+        {open && children}
+      </div>
+      {open &&
+        (tasks.length === 0 ? (
+          <p className="text-sm text-gray-500">{emptyLabel}</p>
+        ) : (
+          <div className="space-y-1">
+            {tasks.map(t => (
+              <TaskRow key={t.id} task={t} projectId={projectId} />
+            ))}
+          </div>
+        ))}
+    </div>
+  );
 }
 
 function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectTask[] }) {
@@ -123,29 +173,27 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
     setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskDescription('');
   };
 
+  const open = tasks.filter(t => t.completed_at === null);
+  const completed = tasks.filter(t => t.completed_at !== null);
+
+  const sortControls = (['due_date', 'created_at'] as TaskSortField[]).map(field => (
+    <button
+      key={field}
+      onClick={() => setSort(prev =>
+        prev.field === field
+          ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
+          : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
+      )}
+      className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-500'}`}
+    >
+      {field === 'due_date' ? 'due' : 'added'} {sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓'}
+    </button>
+  ));
+
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3">
-        <h2 className="text-lg font-bold text-gray-800">Tasks</h2>
-        {(['due_date', 'created_at'] as TaskSortField[]).map(field => (
-          <button
-            key={field}
-            onClick={() => setSort(prev =>
-              prev.field === field
-                ? { field, dir: prev.dir === 'asc' ? 'desc' : 'asc' }
-                : { field, dir: field === 'created_at' ? 'desc' : 'asc' }
-            )}
-            className={`text-xs px-1 rounded hover:text-gray-700 ${sort.field === field ? 'text-blue-600 font-medium' : 'text-gray-500'}`}
-          >
-            {field === 'due_date' ? 'due' : 'added'} {sort.field !== field ? '↕' : sort.dir === 'asc' ? '↑' : '↓'}
-          </button>
-        ))}
-      </div>
-      {tasks.length === 0 && <p className="text-sm text-gray-500 mb-3">No tasks yet.</p>}
-      <div className="space-y-1 mb-3">
-        {sortTasks(tasks, sort.field, sort.dir).map(t => <TaskRow key={t.id} task={t} projectId={projectId} />)}
-      </div>
-      <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2">
+      <h2 className="text-lg font-bold text-gray-800 mb-3">Tasks</h2>
+      <form onSubmit={handleAdd} className="bg-white rounded-lg border border-gray-200 p-3 space-y-2 mb-4">
         <div className="flex gap-2">
           <input
             type="text"
@@ -181,6 +229,21 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
           multiline
         />
       </form>
+
+      <TaskGroup
+        label="Open Tasks"
+        tasks={sortOpenTasks(open, sort.field, sort.dir)}
+        projectId={projectId}
+        emptyLabel="Nothing open on this project."
+      >
+        {sortControls}
+      </TaskGroup>
+      <TaskGroup
+        label="Completed Tasks"
+        tasks={sortCompletedTasks(completed)}
+        projectId={projectId}
+        emptyLabel="Nothing finished yet."
+      />
     </div>
   );
 }
@@ -189,9 +252,11 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
 function UpdateEntry({
   update,
   projectId,
+  files,
 }: {
   update: { id: string; body: string; created_at: string };
   projectId: string;
+  files: Attachment[];
 }) {
   const [editing, setEditing] = useState(false);
   const [body, setBody] = useState(update.body);
@@ -239,6 +304,7 @@ function UpdateEntry({
       >
         {update.body}
       </Markdown>
+      <Attachments type="project_update" id={update.id} items={files} className="mt-1.5" />
       <div className="flex items-center justify-between mt-1">
         <p className="text-xs text-gray-500">{formatDate(update.created_at)}</p>
         <div className="flex gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -262,6 +328,8 @@ export function ProjectDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { data: project, isLoading } = useProject(id!);
+  // One request covers every update on the page instead of one per update.
+  const updateFiles = useAttachmentsByEntity('project_update');
   const updateProject = useUpdateProject();
   const completeProject = useCompleteProject();
   const deleteProject = useDeleteProject();
@@ -450,6 +518,8 @@ export function ProjectDetailPage() {
               <p className="text-sm text-gray-500 italic">No overview yet. Click Edit to add one.</p>
             )}
 
+            <Attachments type="project" id={project.id} />
+
             <div className="flex gap-2 pt-1 flex-wrap">
               {!project.completed_at && (
                 <button onClick={handleComplete} disabled={completeProject.isPending} className="px-4 py-2 bg-green-600 text-white text-sm rounded-lg hover:bg-green-700 disabled:opacity-50">
@@ -475,7 +545,7 @@ export function ProjectDetailPage() {
 
         <div className="space-y-3 mb-4">
           {project.updates.map(u => (
-            <UpdateEntry key={u.id} update={u} projectId={id!} />
+            <UpdateEntry key={u.id} update={u} projectId={id!} files={updateFiles.get(u.id) ?? []} />
           ))}
         </div>
 

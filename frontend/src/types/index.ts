@@ -223,3 +223,23 @@ export interface SpendDay {
   items: Spend[];
   total: string;
 }
+
+/** Everything a file can hang on. Dailies (goals/bonuses) carry no attachments. */
+export type AttachmentEntityType =
+  | 'todo'
+  | 'project'
+  | 'project_task'
+  | 'project_update'
+  | 'daily_note';
+
+export interface Attachment {
+  id: string;
+  entity_type: AttachmentEntityType;
+  entity_id: string;
+  /** Where the bytes sit in the private bucket. */
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number;
+  created_at: string;
+}

@@ -119,6 +119,7 @@ function TodoLine({ todo, rightDate, onEdit, onDelete, deleting }: TodoLineProps
         comment={todo.comment}
         onSaveDescription={description => updateTodo.mutate({ id: todo.id, data: { description } })}
         onSaveComment={comment => updateTodo.mutate({ id: todo.id, data: { comment } })}
+        attachTo={{ type: 'todo', id: todo.id }}
       />
     </div>
   );

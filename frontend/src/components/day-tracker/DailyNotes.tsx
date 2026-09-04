@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useDailyNotes, useUpdateDailyNotes } from '../../hooks/useDailyNotes';
 import { Markdown } from '../shared/Markdown';
+import { Attachments } from '../shared/Attachments';
 
 interface Props {
   selectedDate: string;
@@ -129,6 +130,10 @@ export function DailyNotes({ selectedDate }: Props) {
           </div>
         )}
       </div>
+
+      {!editing && data?.id && (
+        <Attachments type="daily_note" id={data.id} className="mt-1.5" />
+      )}
 
       {!editing && data?.updated_at && !isEmpty && (
         <p className="text-xs text-gray-500 mt-1 text-right">

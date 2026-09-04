@@ -4,7 +4,7 @@ import { useUncompleteProjectTask, useUpdateProjectTask, useUncompleteProject } 
 import { EditableComment } from './EditableComment';
 import { DescriptionAndComment } from '../shared/DescriptionAndComment';
 import { formatScore } from './SectionSubtotal';
-import type { DaySummary, DeadlineSummary, TodoSummary } from '../../types';
+import type { AttachmentEntityType, DaySummary, DeadlineSummary, TodoSummary } from '../../types';
 
 interface CompletedTodayProps {
   summary: DaySummary;
@@ -19,6 +19,7 @@ function CompletedRow({
   comment,
   onSaveDescription,
   onSaveComment,
+  attachTo,
   onRemove,
   onDecrement,
   onIncrement,
@@ -32,6 +33,8 @@ function CompletedRow({
   comment: string | null;
   onSaveDescription?: (description: string | null) => void;
   onSaveComment?: (comment: string | null) => void;
+  /** Finishing something shouldn't put its files out of reach. */
+  attachTo?: { type: AttachmentEntityType; id: string };
   onRemove: () => void;
   onDecrement?: () => void;
   onIncrement?: () => void;
@@ -51,6 +54,7 @@ function CompletedRow({
             comment={comment}
             onSaveDescription={onSaveDescription}
             onSaveComment={onSaveComment}
+            attachTo={attachTo}
           />
         ) : onSaveComment ? (
           <EditableComment value={comment} onSave={onSaveComment} />
@@ -106,6 +110,7 @@ function TodoEntry({ item }: { item: TodoSummary }) {
       comment={item.comment}
       onSaveDescription={description => updateTodo.mutate({ id: item.id, data: { description } })}
       onSaveComment={comment => updateTodo.mutate({ id: item.id, data: { comment } })}
+      attachTo={{ type: 'todo', id: item.id }}
       onRemove={() => uncomplete.mutate(item.id)}
       removeDisabled={uncomplete.isPending}
     />
@@ -125,6 +130,7 @@ function TaskEntry({ item }: { item: DeadlineSummary }) {
       comment={item.comment}
       onSaveDescription={description => updateTask.mutate({ taskId: item.id, data: { description } })}
       onSaveComment={comment => updateTask.mutate({ taskId: item.id, data: { comment } })}
+      attachTo={{ type: 'project_task', id: item.id }}
       onRemove={() => uncomplete.mutate(item.id)}
       removeDisabled={uncomplete.isPending}
     />

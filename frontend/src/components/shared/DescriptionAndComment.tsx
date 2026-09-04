@@ -1,11 +1,15 @@
 import { useState } from 'react';
 import { EditableComment } from '../day-tracker/EditableComment';
+import { Attachments } from './Attachments';
+import type { AttachmentEntityType } from '../../types';
 
 interface DescriptionAndCommentProps {
   description: string | null;
   comment: string | null;
   onSaveDescription: (value: string | null) => void;
   onSaveComment: (value: string | null) => void;
+  /** The record these fields belong to, so files can hang on it too. */
+  attachTo?: { type: AttachmentEntityType; id: string };
 }
 
 function Field({
@@ -36,6 +40,7 @@ export function DescriptionAndComment({
   comment,
   onSaveDescription,
   onSaveComment,
+  attachTo,
 }: DescriptionAndCommentProps) {
   const [open, setOpen] = useState(false);
   const hasContent = !!description?.trim() || !!comment?.trim();
@@ -52,7 +57,7 @@ export function DescriptionAndComment({
         }`}
         title={open ? 'Hide description and comment' : 'Show description and comment'}
       >
-        {open ? '▾' : '▸'} desc / comment
+        {open ? '▾' : '▸'} desc / comment{attachTo ? ' / files' : ''}
       </button>
       {open && (
         <>
@@ -74,6 +79,16 @@ export function DescriptionAndComment({
             editTitle="Click to edit comment"
             multiline
           />
+          {attachTo && (
+            <div className="flex items-start gap-1.5">
+              <span className="w-16 shrink-0 pt-1 text-left text-[10px] lowercase tracking-wide text-gray-500 select-none">
+                files
+              </span>
+              <div className="flex-1 min-w-0 pt-0.5">
+                <Attachments type={attachTo.type} id={attachTo.id} />
+              </div>
+            </div>
+          )}
         </>
       )}
     </div>

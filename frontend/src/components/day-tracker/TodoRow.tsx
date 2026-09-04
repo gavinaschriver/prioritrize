@@ -171,6 +171,7 @@ export function TodoRow({ item, viewedDate }: TodoRowProps) {
           onSaveComment={(comment) =>
             updateTodo.mutate({ id: item.id, data: { comment } })
           }
+          attachTo={{ type: 'todo', id: item.id }}
         />
       </div>
     </div>

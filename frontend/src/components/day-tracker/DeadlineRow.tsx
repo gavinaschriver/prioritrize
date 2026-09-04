@@ -219,6 +219,7 @@ export function DeadlineRow({ item, viewedDate }: DeadlineRowProps) {
             onSaveComment={(comment) =>
               updateTask.mutate({ taskId: item.id, data: { comment } })
             }
+            attachTo={{ type: 'project_task', id: item.id }}
           />
         </div>
       )}
