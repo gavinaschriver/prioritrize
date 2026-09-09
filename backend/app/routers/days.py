@@ -4,7 +4,7 @@ from datetime import date as date_cls
 from app.auth import get_current_user
 from app.database import get_conn
 from app.models.scoring import DaySummary, BalanceOut, RecomputeOut, WrapUpOut
-from app.services import scoring_service
+from app.services import scoring_service, template_service
 from app.utils.timezone import get_today_str
 
 router = APIRouter(prefix="/api/days", tags=["days"])
@@ -17,6 +17,12 @@ async def day_summary(
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
+    # There is no cron in this app, and a server-side one could not know the
+    # caller's timezone, so both kinds of catch-up happen when someone looks.
+    # Generation runs first so a due recurrence shows up on the very load that
+    # created it; it can only ever touch today, since compute_day_score counts
+    # todos by created_at.
+    await template_service.materialize_due_recurrences(conn, user["id"], tz)
     # Close out any past day that never got a snapshot
     await scoring_service.backfill_snapshots(user["id"], tz, conn)
     return await scoring_service.compute_day_score(user["id"], date, tz, conn)

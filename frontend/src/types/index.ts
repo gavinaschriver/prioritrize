@@ -76,6 +76,35 @@ export interface Todo {
   updated_at: string;
 }
 
+/** A blueprint for work that gets re-entered, and optionally the interval that
+ *  re-enters it for you.
+ *
+ *  Templates and recurrences are one thing: `repeat_every_days === null` is a
+ *  manual template you pick from the tracker's dropdown, and a number means it
+ *  materializes on its own. That single nullable field is the whole difference. */
+export interface ItemTemplate {
+  id: string;
+  user_id: string;
+  /** A 'task' template carries a project; a 'todo' template never does. */
+  kind: 'todo' | 'task';
+  project_id: string | null;
+  name: string;
+  point_value: number;
+  description: string | null;
+  category_id: string | null;
+  /** null = no schedule. "Every Friday" is 7, anchored on a Friday. */
+  repeat_every_days: number | null;
+  /** The anchor, and the first occurrence. Set whenever there's an interval. */
+  starts_on: string | null;
+  ends_on: string | null;
+  paused: boolean;
+  /** Last occurrence created OR skipped past — the watermark that stops a week
+   *  away from producing a week's worth of overdue todos. */
+  last_materialized_on: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface TodoSummary {
   id: string;
   name: string;

@@ -14,6 +14,7 @@ import { CategorySelect, CategoryChip } from '../components/shared/CategorySelec
 import { TagCommentInput } from '../components/day-tracker/TagCommentInput';
 import { TaskDetailModal } from '../components/shared/TaskDetailModal';
 import { formatDueDate } from '../lib/urgency';
+import { useTemplates, useCreateTemplate, useInstantiateTemplate } from '../hooks/useTemplates';
 
 function TaskRow({ task, projectId }: { task: ProjectTask; projectId: string }) {
   // Tapping the row opens the detail sheet; the check stays a one-tap action.
@@ -148,18 +149,34 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
   const [taskPts, setTaskPts] = useState('');
   const [taskDue, setTaskDue] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
+  // A checkbox rather than the todo form's pair, because a task cannot recur --
+  // see docs/templates-and-recurrence.md for what that would take.
+  const [asTemplate, setAsTemplate] = useState(false);
   const createTask = useCreateProjectTask(projectId);
+  const createTemplate = useCreateTemplate();
+  const { data: templates } = useTemplates('task', projectId);
+  const instantiate = useInstantiateTemplate();
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!taskName.trim()) return;
     const pv = taskPts.trim() !== '' ? parseInt(taskPts) : 0;
-    await createTask.mutateAsync({
-      name: taskName,
-      point_value: isNaN(pv) ? 0 : pv,
-      due_date: taskDue || null,
-      description: taskDescription.trim() || null,
-    });
+    if (asTemplate) {
+      await createTemplate.mutateAsync({
+        name: taskName,
+        point_value: isNaN(pv) ? 0 : pv,
+        description: taskDescription.trim() || null,
+        kind: 'task',
+        project_id: projectId,
+      });
+    } else {
+      await createTask.mutateAsync({
+        name: taskName,
+        point_value: isNaN(pv) ? 0 : pv,
+        due_date: taskDue || null,
+        description: taskDescription.trim() || null,
+      });
+    }
     setTaskName(''); setTaskPts(''); setTaskDue(''); setTaskDescription('');
   };
 
@@ -200,17 +217,47 @@ function TasksSection({ projectId, tasks }: { projectId: string; tasks: ProjectT
             onChange={e => setTaskPts(e.target.value)}
             className="w-16 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
           />
-          <input
-            type="date"
-            value={taskDue}
-            onChange={e => setTaskDue(e.target.value)}
-            className="w-36 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
-          />
+          {!asTemplate && (
+            <input
+              type="date"
+              value={taskDue}
+              onChange={e => setTaskDue(e.target.value)}
+              className="w-36 px-2 py-1.5 text-sm border border-gray-300 rounded-lg"
+            />
+          )}
           <button
             type="submit"
-            disabled={createTask.isPending || !taskName.trim()}
+            disabled={createTask.isPending || createTemplate.isPending || !taskName.trim()}
             className="px-3 py-1.5 bg-blue-600 text-white text-sm rounded-lg hover:bg-blue-700 disabled:opacity-50 shrink-0"
-          >Add</button>
+          >{asTemplate ? 'Save' : 'Add'}</button>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+          <label className="flex items-center gap-1.5 text-xs text-gray-600 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={asTemplate}
+              onChange={e => setAsTemplate(e.target.checked)}
+              className="accent-blue-600"
+            />
+            Save as template
+          </label>
+          {!asTemplate && templates && templates.length > 0 && (
+            <select
+              value=""
+              disabled={instantiate.isPending}
+              onChange={e => {
+                if (e.target.value) {
+                  instantiate.mutate({ id: e.target.value, dueDate: taskDue || null, projectId });
+                }
+              }}
+              className="text-xs max-w-44 px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-600"
+            >
+              <option value="">+ From template...</option>
+              {templates.map(t => (
+                <option key={t.id} value={t.id}>{t.name}</option>
+              ))}
+            </select>
+          )}
         </div>
         <TagCommentInput
           value={taskDescription}

@@ -15,6 +15,7 @@ import { CompletedToday } from "../components/day-tracker/CompletedToday";
 import { SpendingInput } from "../components/day-tracker/SpendingInput";
 import { SpendingLog } from "../components/day-tracker/SpendingLog";
 import { CombinedQueueSection } from "../components/day-tracker/CombinedQueueSection";
+import { AddFromTemplate } from "../components/day-tracker/AddFromTemplate";
 import { DailyNotes } from "../components/day-tracker/DailyNotes";
 import { InProgress } from "../components/day-tracker/InProgress";
 import { useActiveItem } from "../hooks/useActiveItem";
@@ -102,6 +103,7 @@ export function DayTrackerPage() {
             {/* Only past days can be "finished" — today is still in progress. */}
             <div>{!isToday && <DayWrapUpStatus date={selectedDate} />}</div>
             <div className="flex gap-2">
+            <AddFromTemplate />
             <button
               onClick={toggleAll}
               className="text-xs px-2 py-1 rounded-lg border bg-white border-gray-200 text-gray-500 hover:text-gray-600 transition-colors"
