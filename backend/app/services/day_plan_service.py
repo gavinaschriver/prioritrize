@@ -27,7 +27,8 @@ SELECT d.id, d.section, d.slot_index, d.entity_type, d.entity_id,
        COALESCE(t.due_date, pt.due_date) AS due_date,
        COALESCE(t.completed_at, pt.completed_at) AS completed_at,
        pt.project_id, pr.name AS project_name, ty.name AS daily_type,
-       COALESCE(p.can_repeat, false) AS can_repeat,
+       COALESCE(p.can_repeat, false) AS can_repeat, d.note,
+       COALESCE(p.comments_enabled, false) AS comments_enabled,
        (p.id IS NOT NULL AND EXISTS (
            SELECT 1 FROM entry e
            WHERE e.prioritry_id = p.id
@@ -126,6 +127,7 @@ async def get_day_plan(conn: asyncpg.Connection, user_id: str, plan_date: date, 
     daily_rows = await conn.fetch(
         """
         SELECT p.id AS entity_id, p.name, p.point_value, ty.name AS daily_type, p.can_repeat,
+               p.comments_enabled,
                EXISTS (
                    SELECT 1 FROM entry e
                    WHERE e.prioritry_id = p.id
@@ -193,6 +195,44 @@ _OWNER_SQL = {
 }
 
 
+async def _open_gap(
+    conn: asyncpg.Connection, uid: UUID, plan_date: date, section: str, slot_index: int,
+    exclude_id: UUID | None = None,
+) -> None:
+    """Make room at slot_index: it and everything below step down one, and the
+    section gains a slot. Call inside a transaction with the one-per-slot check
+    deferred -- each block steps onto a slot its neighbour is still leaving."""
+    before = await conn.fetchval(_EFFECTIVE_COUNT_SQL, uid, plan_date, section)
+    await conn.execute(
+        """
+        UPDATE day_plan_item SET slot_index = slot_index + 1, updated_at = now()
+        WHERE user_id = $1 AND plan_date = $2 AND section = $3 AND slot_index >= $4
+          AND id IS DISTINCT FROM $5
+        """,
+        uid, plan_date, section, slot_index, exclude_id,
+    )
+    await _set_slot_count(conn, uid, plan_date, section, before + 1)
+
+
+async def _close_gap(
+    conn: asyncpg.Connection, uid: UUID, plan_date: date, section: str, slot_index: int,
+    exclude_id: UUID | None = None,
+) -> None:
+    """The reverse: slot_index goes away, everything below steps up one, and the
+    section loses a slot. `exclude_id` is a block still sitting in that slot that
+    the caller is about to move or delete. Same transaction rules as _open_gap."""
+    before = await conn.fetchval(_EFFECTIVE_COUNT_SQL, uid, plan_date, section)
+    await conn.execute(
+        """
+        UPDATE day_plan_item SET slot_index = slot_index - 1, updated_at = now()
+        WHERE user_id = $1 AND plan_date = $2 AND section = $3 AND slot_index > $4
+          AND id IS DISTINCT FROM $5
+        """,
+        uid, plan_date, section, slot_index, exclude_id,
+    )
+    await _set_slot_count(conn, uid, plan_date, section, before - 1)
+
+
 async def create_item(conn: asyncpg.Connection, user_id: str, data: PlanItemCreate) -> dict:
     uid = to_uuid(user_id)
     if data.entity_type != "freeform":
@@ -213,24 +253,34 @@ async def create_item(conn: asyncpg.Connection, user_id: str, data: PlanItemCrea
             raise HTTPException(409, "That daily is already on this day")
 
     try:
-        row = await conn.fetchrow(
-            """
-            INSERT INTO day_plan_item
-                (user_id, plan_date, section, slot_index, entity_type, entity_id, freeform_text)
-            VALUES ($1, $2, $3, $4, $5, $6, $7)
-            RETURNING id
-            """,
-            uid, data.plan_date, data.section, data.slot_index,
-            data.entity_type, data.entity_id, data.freeform_text,
-        )
+        async with conn.transaction():
+            if data.insert:
+                await conn.execute("SET CONSTRAINTS day_plan_item_one_per_slot DEFERRED")
+                await _open_gap(conn, uid, data.plan_date, data.section, data.slot_index)
+            row = await conn.fetchrow(
+                """
+                INSERT INTO day_plan_item
+                    (user_id, plan_date, section, slot_index, entity_type, entity_id, freeform_text)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
+                RETURNING id
+                """,
+                uid, data.plan_date, data.section, data.slot_index,
+                data.entity_type, data.entity_id, data.freeform_text,
+            )
+            await _grow_to_fit(conn, uid, data.plan_date, data.section, data.slot_index)
     except asyncpg.UniqueViolationError:
         raise HTTPException(409, "That slot is taken, or the item is already on this day")
-    await _grow_to_fit(conn, uid, data.plan_date, data.section, data.slot_index)
     return {"id": row["id"]}
 
 
 async def move_item(conn: asyncpg.Connection, user_id: str, item_id: UUID, data: PlanItemMove) -> dict:
-    """Move a stored block. If the target slot holds another block, the two trade places."""
+    """Move a stored block.
+
+    Onto a slot: if another block is there, the two trade places.
+    With `insert`: a new slot opens at the target and the block's old slot closes
+    up behind it -- a reorder, not a swap.
+    With `collapse` (to the bank): the slot it leaves closes up too.
+    """
     uid = to_uuid(user_id)
     async with conn.transaction():
         mover = await conn.fetchrow(
@@ -242,6 +292,27 @@ async def move_item(conn: asyncpg.Connection, user_id: str, item_id: UUID, data:
         if data.section in UNSLOTTED and mover["entity_type"] == "freeform":
             raise HTTPException(400, "Freeform blocks can't go in the bank")
 
+        plan_date = mover["plan_date"]
+        src_section, src_index = mover["section"], mover["slot_index"]
+        on_timeline = src_section in TIMELINE
+        # Every path below shuffles blocks through each other's slots.
+        await conn.execute("SET CONSTRAINTS day_plan_item_one_per_slot DEFERRED")
+
+        if data.insert:
+            target = data.slot_index
+            if on_timeline:
+                await _close_gap(conn, uid, plan_date, src_section, src_index, exclude_id=item_id)
+                # Closing the old slot pulled everything below it up one, the
+                # target included.
+                if src_section == data.section and target > src_index:
+                    target -= 1
+            await _open_gap(conn, uid, plan_date, data.section, target, exclude_id=item_id)
+            await conn.execute(
+                "UPDATE day_plan_item SET section = $2, slot_index = $3, updated_at = now() WHERE id = $1",
+                item_id, data.section, target,
+            )
+            return {"status": "inserted", "slot_index": target}
+
         occupant = None
         if data.section not in UNSLOTTED:
             occupant = await conn.fetchrow(
@@ -251,18 +322,20 @@ async def move_item(conn: asyncpg.Connection, user_id: str, item_id: UUID, data:
                   AND id <> $5
                 FOR UPDATE
                 """,
-                uid, mover["plan_date"], data.section, data.slot_index, item_id,
+                uid, plan_date, data.section, data.slot_index, item_id,
             )
-        if occupant and mover["section"] in UNSLOTTED and occupant["entity_type"] == "freeform":
+        if occupant and src_section in UNSLOTTED and occupant["entity_type"] == "freeform":
             raise HTTPException(409, "Can't swap a freeform block into the bank")
 
-        # Leaving a slot keeps it (it just goes empty). Pin the source section's
-        # count while the mover still sits there, or a block that was holding the
-        # count up would take its slot with it.
-        await _grow_to_fit(conn, uid, mover["plan_date"], mover["section"], mover["slot_index"])
+        collapsing = data.collapse and on_timeline and data.section in UNSLOTTED
+        if collapsing:
+            await _close_gap(conn, uid, plan_date, src_section, src_index, exclude_id=item_id)
+        else:
+            # Leaving a slot keeps it (it just goes empty). Pin the source section's
+            # count while the mover still sits there, or a block that was holding the
+            # count up would take its slot with it.
+            await _grow_to_fit(conn, uid, plan_date, src_section, src_index)
 
-        # Mid-swap, both blocks briefly claim the same slot; check at commit instead.
-        await conn.execute("SET CONSTRAINTS day_plan_item_one_per_slot DEFERRED")
         await conn.execute(
             "UPDATE day_plan_item SET section = $2, slot_index = $3, updated_at = now() WHERE id = $1",
             item_id, data.section, data.slot_index,
@@ -270,9 +343,9 @@ async def move_item(conn: asyncpg.Connection, user_id: str, item_id: UUID, data:
         if occupant:
             await conn.execute(
                 "UPDATE day_plan_item SET section = $2, slot_index = $3, updated_at = now() WHERE id = $1",
-                occupant["id"], mover["section"], mover["slot_index"],
+                occupant["id"], src_section, src_index,
             )
-        await _grow_to_fit(conn, uid, mover["plan_date"], data.section, data.slot_index)
+        await _grow_to_fit(conn, uid, plan_date, data.section, data.slot_index)
     return {"status": "moved", "swapped_with": occupant["id"] if occupant else None}
 
 
@@ -289,10 +362,33 @@ async def update_text(conn: asyncpg.Connection, user_id: str, item_id: UUID, tex
     return {"status": "updated"}
 
 
-async def delete_item(conn: asyncpg.Connection, user_id: str, item_id: UUID) -> dict:
-    await conn.execute(
-        "DELETE FROM day_plan_item WHERE id = $1 AND user_id = $2", item_id, to_uuid(user_id)
+async def update_note(conn: asyncpg.Connection, user_id: str, item_id: UUID, note: str | None) -> dict:
+    result = await conn.execute(
+        """
+        UPDATE day_plan_item SET note = NULLIF(btrim($3), ''), updated_at = now()
+        WHERE id = $1 AND user_id = $2 AND entity_type <> 'freeform'
+        """,
+        item_id, to_uuid(user_id), note,
     )
+    if result == "UPDATE 0":
+        raise HTTPException(404, "Plan item not found")
+    return {"status": "updated"}
+
+
+async def delete_item(conn: asyncpg.Connection, user_id: str, item_id: UUID, collapse: bool = False) -> dict:
+    """Delete a block. With `collapse`, the slot it sat in closes up as well."""
+    uid = to_uuid(user_id)
+    async with conn.transaction():
+        row = await conn.fetchrow(
+            "SELECT plan_date, section, slot_index FROM day_plan_item WHERE id = $1 AND user_id = $2 FOR UPDATE",
+            item_id, uid,
+        )
+        if not row:
+            return {"status": "deleted"}
+        if collapse and row["section"] in TIMELINE:
+            await conn.execute("SET CONSTRAINTS day_plan_item_one_per_slot DEFERRED")
+            await _close_gap(conn, uid, row["plan_date"], row["section"], row["slot_index"], exclude_id=item_id)
+        await conn.execute("DELETE FROM day_plan_item WHERE id = $1", item_id)
     return {"status": "deleted"}
 
 
@@ -314,15 +410,6 @@ async def remove_slot(conn: asyncpg.Connection, user_id: str, data: SlotRemove) 
         if data.slot_index >= current:
             raise HTTPException(404, "No such slot")
 
-        # Each block steps into the slot above it, which its neighbour is still
-        # leaving -- so the one-per-slot check waits for commit.
         await conn.execute("SET CONSTRAINTS day_plan_item_one_per_slot DEFERRED")
-        await conn.execute(
-            """
-            UPDATE day_plan_item SET slot_index = slot_index - 1, updated_at = now()
-            WHERE user_id = $1 AND plan_date = $2 AND section = $3 AND slot_index > $4
-            """,
-            uid, data.plan_date, data.section, data.slot_index,
-        )
-        await _set_slot_count(conn, uid, data.plan_date, data.section, current - 1)
+        await _close_gap(conn, uid, data.plan_date, data.section, data.slot_index)
     return {"status": "removed", "slot_count": current - 1}

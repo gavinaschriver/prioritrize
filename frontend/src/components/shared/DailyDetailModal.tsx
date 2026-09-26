@@ -26,15 +26,18 @@ export function DailyDetailModal({
   onClose,
   isBonus,
   selectedDate,
+  initialComment,
 }: {
   item: DayPrioritrySummary | null;
   onClose: () => void;
   isBonus: boolean;
   /** Which day the entry lands on — the sheet can be opened on a past day. */
   selectedDate: string;
+  /** Pre-fills the log comment -- the Day view passes a session's plan note. */
+  initialComment?: string;
 }) {
   const [blocks, setBlocks] = useState(1);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState(initialComment ?? '');
   const createEntry = useCreateEntry();
   const updateComment = useUpdateEntryComment();
   const deleteEntry = useDeleteEntry();

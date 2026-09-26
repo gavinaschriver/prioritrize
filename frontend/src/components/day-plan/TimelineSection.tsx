@@ -1,5 +1,6 @@
 import { PlanBlockCard } from './PlanBlockCard';
-import { DraggableBlock, DropZone } from './dnd';
+import { DraggableBlock, DropZone, GapZone } from './dnd';
+import { Fragment } from 'react';
 import { FreeformBlock } from './FreeformBlock';
 import { isPending } from './blocks';
 import type { PlanBlock, TimelineSection as SectionKey } from '../../types';
@@ -16,7 +17,7 @@ interface TimelineSectionProps {
   viewedDate: string;
   onOpen: (block: PlanBlock) => void;
   onSaveFreeform: (block: PlanBlock, text: string) => void;
-  onRemove: (block: PlanBlock) => void;
+  onEditNote: (block: PlanBlock, note: string) => void;
   /** Sends a block back where it came from: Due Today, or its dailies drawer. */
   onClear: (block: PlanBlock) => void;
   onRemoveSlot: (slotIndex: number) => void;
@@ -24,7 +25,7 @@ interface TimelineSectionProps {
 
 export function TimelineSection({
   section, label, start, end, blocks, slotCount: storedCount, viewedDate,
-  onOpen, onSaveFreeform, onRemove, onClear, onRemoveSlot,
+  onOpen, onSaveFreeform, onEditNote, onClear, onRemoveSlot,
 }: TimelineSectionProps) {
   const bySlot = new Map(blocks.map(b => [b.slot_index, b]));
   // The server already never undercounts, but a block dropped on the add zone
@@ -38,12 +39,14 @@ export function TimelineSection({
         <div className="text-xs font-semibold text-gray-700 uppercase tracking-wide">{label}</div>
         <div className="text-[11px] text-gray-500">{start} – {end}</div>
       </div>
-      <div className="flex-1 min-w-0 border-l border-gray-200 py-2 pl-2 space-y-1.5">
+      <div className="flex-1 min-w-0 border-l border-gray-200 py-2 pl-2">
         {Array.from({ length: slotCount }, (_, slotIndex) => {
           const block = bySlot.get(slotIndex);
           return (
+            <Fragment key={slotIndex}>
+            {/* Above each slot: drop here to squeeze something in before it. */}
+            <GapZone id={`gap:${section}:${slotIndex}`} target={{ section, slot_index: slotIndex, insert: true }} />
             <DropZone
-              key={slotIndex}
               id={`slot:${section}:${slotIndex}`}
               target={{ section, slot_index: slotIndex }}
               className="min-h-11"
@@ -55,7 +58,7 @@ export function TimelineSection({
                   block={block}
                   viewedDate={viewedDate}
                   onSave={text => onSaveFreeform(block, text)}
-                  onRemove={() => onRemove(block)}
+                  onRemove={() => onClear(block)}
                 />
               ) : block ? (
                 <DraggableBlock block={block}>
@@ -65,6 +68,12 @@ export function TimelineSection({
                     onOpen={() => onOpen(block)}
                     onDismiss={isPending(block) ? undefined : () => onClear(block)}
                     dismissLabel={block.entity_type === 'prioritry' ? 'Back to dailies' : 'Back to Due Today'}
+                    onEditNote={
+                      // Only where logging takes a comment: that's where the note ends up.
+                      block.entity_type === 'prioritry' && block.comments_enabled && !isPending(block)
+                        ? note => onEditNote(block, note)
+                        : undefined
+                    }
                   />
                 </DraggableBlock>
               ) : (
@@ -81,8 +90,10 @@ export function TimelineSection({
                 </div>
               )}
             </DropZone>
+            </Fragment>
           );
         })}
+        <div className="h-1.5" />
         {/* One past the last slot: dropping here makes a new slot. To handleDrop
             it's just an empty slot at index slotCount. */}
         <DropZone

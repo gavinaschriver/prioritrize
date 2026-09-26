@@ -22,6 +22,17 @@ export function DraggableBlock({ block, className, children }: { block: PlanBloc
   );
 }
 
+/** The strip between two slots. Hovering it draws an insertion line; dropping
+ *  opens a new slot right there. */
+export function GapZone({ id, target }: { id: string; target: DropTarget }) {
+  const { setNodeRef, isOver } = useDroppable({ id, data: { target } });
+  return (
+    <div ref={setNodeRef} className="relative h-2.5">
+      {isOver && <div className="absolute inset-x-0 top-1/2 h-0.5 -translate-y-1/2 rounded bg-blue-500" />}
+    </div>
+  );
+}
+
 export function DropZone({ id, target, className, children }: {
   id: string;
   target: DropTarget;

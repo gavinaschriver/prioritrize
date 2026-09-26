@@ -38,6 +38,11 @@ class PlanBlock(BaseModel):
     can_repeat: bool = False
     #: Repeatable dailies in the drawer only: sessions already in a slot that day.
     scheduled_count: int = 0
+    #: A scheduled session's specifics ("long walk"). Seeds the log comment.
+    note: str | None = None
+    #: Dailies only: whether logging takes a comment -- and so whether a note has
+    #: anywhere to go.
+    comments_enabled: bool = False
 
 
 class DayPlanOut(BaseModel):
@@ -73,9 +78,13 @@ class PlanItemCreate(BaseModel):
     entity_type: PlanEntityType
     entity_id: UUID | None = None
     freeform_text: str | None = None
+    #: Open a new slot at slot_index (pushing the rest down) instead of taking it.
+    insert: bool = False
 
     @model_validator(mode="after")
     def check_shape(self):
+        if self.insert and self.section in UNSLOTTED:
+            raise ValueError("insert only applies on the timeline")
         # Mirrors the table's CHECKs so a bad request gets a 422, not a 500.
         if (self.section in UNSLOTTED) != (self.slot_index is None):
             raise ValueError("slot_index is required on the timeline and forbidden in the bank")
@@ -91,16 +100,27 @@ class PlanItemMove(BaseModel):
     """Where a stored block should go. If another block is there, they swap."""
     section: PlanSection
     slot_index: int | None = None
+    #: Open a new slot at slot_index and close the old one: a reorder, not a swap.
+    insert: bool = False
+    #: Leaving the timeline, close up the slot left behind rather than keep it empty.
+    collapse: bool = False
 
     @model_validator(mode="after")
     def check_shape(self):
         if (self.section in UNSLOTTED) != (self.slot_index is None):
             raise ValueError("slot_index is required on the timeline and forbidden in the bank")
+        if self.insert and self.section in UNSLOTTED:
+            raise ValueError("insert only applies on the timeline")
         return self
 
 
 class PlanItemText(BaseModel):
     freeform_text: str
+
+
+class PlanItemNote(BaseModel):
+    #: Empty or null clears it.
+    note: str | None
 
 
 class SlotRemove(BaseModel):

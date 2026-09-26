@@ -5,7 +5,7 @@ from uuid import UUID
 from app.auth import get_current_user
 from app.database import get_conn
 from app.models.day_plan import (
-    DayPlanOut, PlanCandidate, PlanItemCreate, PlanItemMove, PlanItemText, SlotRemove,
+    DayPlanOut, PlanCandidate, PlanItemCreate, PlanItemMove, PlanItemNote, PlanItemText, SlotRemove,
 )
 from app.services import day_plan_service
 
@@ -62,13 +62,25 @@ async def update_text(
     return await day_plan_service.update_text(conn, user["id"], item_id, data.freeform_text)
 
 
-@router.delete("/items/{item_id}")
-async def delete_item(
+@router.patch("/items/{item_id}/note")
+async def update_note(
     item_id: UUID,
+    data: PlanItemNote,
     user: dict = Depends(get_current_user),
     conn: asyncpg.Connection = Depends(get_conn),
 ):
-    return await day_plan_service.delete_item(conn, user["id"], item_id)
+    """What a scheduled session will be, specifically. Seeds the log comment."""
+    return await day_plan_service.update_note(conn, user["id"], item_id, data.note)
+
+
+@router.delete("/items/{item_id}")
+async def delete_item(
+    item_id: UUID,
+    collapse: bool = Query(False, description="Also close up the slot it sat in"),
+    user: dict = Depends(get_current_user),
+    conn: asyncpg.Connection = Depends(get_conn),
+):
+    return await day_plan_service.delete_item(conn, user["id"], item_id, collapse)
 
 
 @router.post("/sections/remove-slot")

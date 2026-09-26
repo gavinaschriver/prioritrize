@@ -22,34 +22,71 @@ export function useDayPlanCandidates(date: string, enabled: boolean) {
   });
 }
 
-/** Every block on the day, wherever it sits, as one list. */
-const allBlocks = (plan: DayPlan) => [...plan.bank, ...plan.dailies, ...plan.slots, ...plan.dismissed];
+/** The parts of a day's plan an optimistic update can change: every block,
+ *  wherever it sits, as one flat list -- plus how many slots each section has. */
+interface Layout {
+  blocks: PlanBlock[];
+  counts: Record<TimelineSection, number>;
+}
 
-/** Re-sort a flat list of blocks back into the three lists the page reads. */
-function regroup(plan: DayPlan, blocks: PlanBlock[]): DayPlan {
+const isTimeline = (section: PlanSection): section is TimelineSection =>
+  section === 'morning' || section === 'afternoon' || section === 'evening';
+
+/** Re-sort a flat layout back into the lists the page reads. */
+function regroup(plan: DayPlan, { blocks, counts }: Layout): DayPlan {
   return {
     ...plan,
     bank: blocks.filter(b => b.section === 'bank' && b.entity_type !== 'prioritry'),
     dailies: blocks.filter(b => b.section === 'bank' && b.entity_type === 'prioritry'),
-    slots: blocks.filter(b => b.section !== 'bank' && b.section !== 'dismissed'),
+    slots: blocks.filter(b => isTimeline(b.section)),
     dismissed: blocks.filter(b => b.section === 'dismissed'),
+    slot_counts: counts,
+  };
+}
+
+/** Local mirror of the server's _open_gap: slot_index and everything below step
+ *  down one, and the section gains a slot. */
+function openGap(layout: Layout, section: TimelineSection, slotIndex: number, excludeId?: string): Layout {
+  return {
+    blocks: layout.blocks.map(b =>
+      b.section === section && b.id !== excludeId && b.slot_index !== null && b.slot_index >= slotIndex
+        ? { ...b, slot_index: b.slot_index + 1 }
+        : b,
+    ),
+    counts: { ...layout.counts, [section]: layout.counts[section] + 1 },
+  };
+}
+
+/** Local mirror of _close_gap: slot_index goes away, everything below steps up. */
+function closeGap(layout: Layout, section: TimelineSection, slotIndex: number, excludeId?: string): Layout {
+  return {
+    blocks: layout.blocks.map(b =>
+      b.section === section && b.id !== excludeId && b.slot_index !== null && b.slot_index > slotIndex
+        ? { ...b, slot_index: b.slot_index - 1 }
+        : b,
+    ),
+    counts: { ...layout.counts, [section]: layout.counts[section] - 1 },
   };
 }
 
 /** The shared optimistic dance: snapshot, apply the change locally, roll back on
  *  error, and refetch either way so the server's version wins in the end. Same
- *  shape as useReorderProjects, pulled out because three mutations need it. */
+ *  shape as useReorderProjects, pulled out because every mutation here needs it. */
 function optimistic<Vars>(
   queryClient: QueryClient,
   date: string,
-  apply: (blocks: PlanBlock[], vars: Vars) => PlanBlock[],
+  apply: (layout: Layout, vars: Vars) => Layout,
 ) {
   return {
     onMutate: async (vars: Vars) => {
       await queryClient.cancelQueries({ queryKey: planKey(date) });
       const previous = queryClient.getQueryData<DayPlan>(planKey(date));
       if (previous) {
-        queryClient.setQueryData<DayPlan>(planKey(date), regroup(previous, apply(allBlocks(previous), vars)));
+        const layout: Layout = {
+          blocks: [...previous.bank, ...previous.dailies, ...previous.slots, ...previous.dismissed],
+          counts: previous.slot_counts,
+        };
+        queryClient.setQueryData<DayPlan>(planKey(date), regroup(previous, apply(layout, vars)));
       }
       return { previous };
     },
@@ -69,6 +106,8 @@ export interface PlaceVars {
   entity_type: PlanEntityType;
   entity_id: string | null;
   freeform_text?: string | null;
+  /** Open a new slot at slot_index instead of taking it. */
+  insert?: boolean;
   /** Only needed for "+ Other" pulls, whose item isn't on the day yet. */
   name?: string;
 }
@@ -79,9 +118,13 @@ export function usePlaceItem(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
     // `name` is only for the optimistic block, so it's left out of the request.
-    mutationFn: ({ section, slot_index, entity_type, entity_id, freeform_text }: PlaceVars): Promise<{ id: string }> =>
-      api.post('/api/day-plan/items', { plan_date: date, section, slot_index, entity_type, entity_id, freeform_text }),
-    ...optimistic<PlaceVars>(queryClient, date, (blocks, vars) => {
+    mutationFn: ({ section, slot_index, entity_type, entity_id, freeform_text, insert }: PlaceVars): Promise<{ id: string }> =>
+      api.post('/api/day-plan/items', { plan_date: date, section, slot_index, entity_type, entity_id, freeform_text, insert }),
+    ...optimistic<PlaceVars>(queryClient, date, (layout, vars) => {
+      if (vars.insert && isTimeline(vars.section) && vars.slot_index !== null) {
+        layout = openGap(layout, vars.section, vars.slot_index);
+      }
+      const { blocks } = layout;
       const matches = (b: PlanBlock) => b.entity_type === vars.entity_type && b.entity_id === vars.entity_id;
       // Prefer the unsaved copy -- for a repeatable daily that's the drawer one
       // being dragged, not a session already sitting in a slot.
@@ -99,7 +142,7 @@ export function usePlaceItem(date: string) {
         name: vars.freeform_text ?? vars.name ?? '',
         point_value: null, ref_number: null, due_date: null, completed_at: null,
         project_id: null, project_name: null, logged: false, daily_type: null,
-        can_repeat: false,
+        can_repeat: false, note: null, comments_enabled: false,
         ...existing,
         // A slotted session isn't "scheduled" itself; only the drawer copy counts.
         scheduled_count: 0,
@@ -111,7 +154,7 @@ export function usePlaceItem(date: string) {
         entity_type: vars.entity_type,
         entity_id: vars.entity_id,
       };
-      return [...others, placed];
+      return { ...layout, blocks: [...others, placed] };
     }),
   });
 }
@@ -120,28 +163,61 @@ export interface MoveVars {
   id: string;
   section: PlanSection;
   slot_index: number | null;
+  /** Open a new slot at the target and close the old one: a reorder, not a swap. */
+  insert?: boolean;
+  /** Leaving the timeline, close up the slot left behind. */
+  collapse?: boolean;
 }
 
-/** Move a stored block. The server swaps it with whatever's in the target slot,
- *  and so does the optimistic update. */
+/** Move a stored block: a swap onto a slot, an insert between slots, or back to
+ *  the bank. The optimistic update mirrors whichever the server will do. */
 export function useMoveItem(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: ({ id, ...target }: MoveVars) => api.patch(`/api/day-plan/items/${id}/move`, target),
-    ...optimistic<MoveVars>(queryClient, date, (blocks, vars) => {
-      const mover = blocks.find(b => b.id === vars.id);
-      if (!mover) return blocks;
+    ...optimistic<MoveVars>(queryClient, date, (layout, vars) => {
+      const mover = layout.blocks.find(b => b.id === vars.id);
+      if (!mover) return layout;
+      const from = mover.section;
+      const fromIndex = mover.slot_index;
+      const place = (l: Layout, slotIndex: number | null): Layout => ({
+        ...l,
+        blocks: l.blocks.map(b => (b.id === vars.id ? { ...b, section: vars.section, slot_index: slotIndex } : b)),
+      });
+
+      if (vars.insert && isTimeline(vars.section) && vars.slot_index !== null) {
+        let target = vars.slot_index;
+        if (isTimeline(from) && fromIndex !== null) {
+          layout = closeGap(layout, from, fromIndex, vars.id);
+          if (from === vars.section && target > fromIndex) target -= 1;
+        }
+        return place(openGap(layout, vars.section, target, vars.id), target);
+      }
+
+      if (vars.collapse && isTimeline(from) && fromIndex !== null && !isTimeline(vars.section)) {
+        return place(closeGap(layout, from, fromIndex, vars.id), vars.slot_index);
+      }
+
       // Only timeline slots can be occupied; the bank and 'dismissed' are piles.
       const occupant = vars.slot_index === null
         ? undefined
-        : blocks.find(b => b !== mover && b.section === vars.section && b.slot_index === vars.slot_index);
-      return blocks.map(b => {
-        if (b === mover) return { ...b, section: vars.section, slot_index: vars.slot_index };
-        if (b === occupant) return { ...b, section: mover.section, slot_index: mover.slot_index };
-        return b;
-      });
+        : layout.blocks.find(b => b !== mover && b.section === vars.section && b.slot_index === vars.slot_index);
+      return {
+        ...layout,
+        blocks: layout.blocks.map(b => {
+          if (b === mover) return { ...b, section: vars.section, slot_index: vars.slot_index };
+          if (b === occupant) return { ...b, section: from, slot_index: fromIndex };
+          return b;
+        }),
+      };
     }),
   });
+}
+
+export interface RemoveVars {
+  id: string;
+  /** Close up the slot it sat in, too. */
+  collapse?: boolean;
 }
 
 /** Take a stored block off the day. An item that's due that day will reappear
@@ -149,8 +225,15 @@ export function useMoveItem(date: string) {
 export function useRemoveItem(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (id: string) => api.delete(`/api/day-plan/items/${id}`),
-    ...optimistic<string>(queryClient, date, (blocks, id) => blocks.filter(b => b.id !== id)),
+    mutationFn: ({ id, collapse }: RemoveVars) =>
+      api.delete(`/api/day-plan/items/${id}${collapse ? '?collapse=true' : ''}`),
+    ...optimistic<RemoveVars>(queryClient, date, (layout, vars) => {
+      const gone = layout.blocks.find(b => b.id === vars.id);
+      const without = { ...layout, blocks: layout.blocks.filter(b => b.id !== vars.id) };
+      return vars.collapse && gone && isTimeline(gone.section) && gone.slot_index !== null
+        ? closeGap(without, gone.section, gone.slot_index)
+        : without;
+    }),
   });
 }
 
@@ -160,9 +243,23 @@ export function useUpdateFreeform(date: string) {
     mutationFn: ({ id, text }: { id: string; text: string }) =>
       api.patch(`/api/day-plan/items/${id}/text`, { freeform_text: text }),
     // Optimistic too, or the card flashes "Untitled" between Enter and the refetch.
-    ...optimistic<{ id: string; text: string }>(queryClient, date, (blocks, vars) =>
-      blocks.map(b => (b.id === vars.id ? { ...b, name: vars.text } : b)),
-    ),
+    ...optimistic<{ id: string; text: string }>(queryClient, date, (layout, vars) => ({
+      ...layout,
+      blocks: layout.blocks.map(b => (b.id === vars.id ? { ...b, name: vars.text } : b)),
+    })),
+  });
+}
+
+/** Label a scheduled session with what it'll actually be. */
+export function useUpdateNote(date: string) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note: string }) =>
+      api.patch(`/api/day-plan/items/${id}/note`, { note }),
+    ...optimistic<{ id: string; note: string }>(queryClient, date, (layout, vars) => ({
+      ...layout,
+      blocks: layout.blocks.map(b => (b.id === vars.id ? { ...b, note: vars.note.trim() || null } : b)),
+    })),
   });
 }
 
@@ -171,35 +268,12 @@ export interface RemoveSlotVars {
   slot_index: number;
 }
 
-/** Close up an empty slot. Optimistic like the rest, but it changes the section's
- *  count as well as the blocks, so it doesn't fit the shared helper. */
+/** Close up an empty slot; everything below it steps up one. */
 export function useRemoveSlot(date: string) {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: (vars: RemoveSlotVars) =>
       api.post('/api/day-plan/sections/remove-slot', { plan_date: date, ...vars }),
-    onMutate: async (vars: RemoveSlotVars) => {
-      await queryClient.cancelQueries({ queryKey: planKey(date) });
-      const previous = queryClient.getQueryData<DayPlan>(planKey(date));
-      if (previous) {
-        queryClient.setQueryData<DayPlan>(planKey(date), {
-          ...previous,
-          // Everything below the removed slot steps up one.
-          slots: previous.slots.map(b =>
-            b.section === vars.section && b.slot_index !== null && b.slot_index > vars.slot_index
-              ? { ...b, slot_index: b.slot_index - 1 }
-              : b,
-          ),
-          slot_counts: { ...previous.slot_counts, [vars.section]: previous.slot_counts[vars.section] - 1 },
-        });
-      }
-      return { previous };
-    },
-    onError: (_err, _vars, context) => {
-      if (context?.previous) queryClient.setQueryData(planKey(date), context.previous);
-    },
-    onSettled: () => {
-      queryClient.invalidateQueries({ queryKey: planKey(date) });
-    },
+    ...optimistic<RemoveSlotVars>(queryClient, date, (layout, vars) => closeGap(layout, vars.section, vars.slot_index)),
   });
 }

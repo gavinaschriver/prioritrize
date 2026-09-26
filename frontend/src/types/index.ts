@@ -371,6 +371,10 @@ export interface PlanBlock {
   can_repeat: boolean;
   /** Repeatable dailies in the drawer only: sessions already in a slot that day. */
   scheduled_count: number;
+  /** A scheduled session's specifics ("long walk"). Seeds the log comment. */
+  note: string | null;
+  /** Dailies only: logging takes a comment, so a note has somewhere to go. */
+  comments_enabled: boolean;
 }
 
 export interface DayPlan {

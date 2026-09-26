@@ -5,6 +5,9 @@ import {
   DndContext,
   DragOverlay,
   MouseSensor,
+  pointerWithin,
+  rectIntersection,
+  type CollisionDetection,
   TouchSensor,
   useSensor,
   useSensors,
@@ -20,6 +23,7 @@ import {
   useRemoveItem,
   useUpdateFreeform,
   useRemoveSlot,
+  useUpdateNote,
 } from "../hooks/useDayPlan";
 import { DueBank } from "../components/day-plan/DueBank";
 import { DailiesPanel } from "../components/day-plan/DailiesPanel";
@@ -44,6 +48,7 @@ export function DayPlanPage() {
   const removeItem = useRemoveItem(selectedDate);
   const updateFreeform = useUpdateFreeform(selectedDate);
   const removeSlot = useRemoveSlot(selectedDate);
+  const updateNote = useUpdateNote(selectedDate);
 
   const [dragging, setDragging] = useState<PlanBlock | null>(null);
   const [otherOpen, setOtherOpen] = useState(false);
@@ -75,18 +80,20 @@ export function DayPlanPage() {
 
   /** A pulled-in item leaves the day entirely. */
   const removeFromDay = (block: PlanBlock) => {
-    if (block.id) removeItem.mutate(block.id);
+    if (block.id) removeItem.mutate({ id: block.id });
   };
 
-  /** The × on a slotted block: send it back where it came from. */
+  /** The × on a slotted block: send it back where it came from, and close up
+   *  the slot it leaves -- it was that block's slot, not a spare. */
   const clearToBank = (block: PlanBlock) => {
     if (!block.id) return;
-    if (block.entity_type === "prioritry") {
-      // Dailies are in their drawer by derivation, so dropping the row is enough.
-      removeItem.mutate(block.id);
+    if (block.entity_type === "prioritry" || block.entity_type === "freeform") {
+      // Dailies are in their drawer by derivation, so dropping the row is enough;
+      // freeform blocks have nowhere to go back to.
+      removeItem.mutate({ id: block.id, collapse: true });
     } else {
       // Keep the row: a "+ Other" pull should land back in Due Today, not vanish.
-      moveItem.mutate({ id: block.id, section: "bank", slot_index: null });
+      moveItem.mutate({ id: block.id, section: "bank", slot_index: null, collapse: true });
     }
   };
 
@@ -121,7 +128,7 @@ export function DayPlanPage() {
       // Derived bank blocks can only start in the bank, so this is always a stored row.
       if (!block.id) return;
       // Freeform blocks have no life outside a slot; the server rejects them in the bank.
-      if (block.entity_type === "freeform") removeItem.mutate(block.id);
+      if (block.entity_type === "freeform") removeItem.mutate({ id: block.id });
       else moveItem.mutate({ id: block.id, section: "bank", slot_index: null });
       return;
     }
@@ -156,6 +163,32 @@ export function DayPlanPage() {
     );
   };
 
+  /** A drop on the gap between slots: make room there instead of taking a slot.
+   *  A stored block moves (its old slot closes up behind it); anything else is
+   *  placed fresh. No occupant question -- the slot is new, so it's empty. */
+  const handleInsert = (block: PlanBlock, target: DropTarget) => {
+    if (target.section === "bank") return;
+    if (block.id) {
+      moveItem.mutate({ id: block.id, section: target.section, slot_index: target.slot_index, insert: true });
+    } else {
+      placeItem.mutate({
+        section: target.section,
+        slot_index: target.slot_index,
+        entity_type: block.entity_type,
+        entity_id: block.entity_id,
+        name: block.name,
+        insert: true,
+      });
+    }
+  };
+
+  /** Let the pointer decide: the gaps between slots are thin, and the dragged
+   *  block's own rectangle would almost always overlap the slot next to one. */
+  const collisionDetection: CollisionDetection = (args) => {
+    const underPointer = pointerWithin(args);
+    return underPointer.length > 0 ? underPointer : rectIntersection(args);
+  };
+
   const onDragStart = (event: DragStartEvent) => {
     setDragging(event.active.data.current?.block ?? null);
   };
@@ -168,6 +201,7 @@ export function DayPlanPage() {
     if (!block || !target) return;
     // Dailies live in their own panel, not among the day's due work.
     if (target.section === "bank" && block.entity_type === "prioritry") return;
+    if (target.insert) return handleInsert(block, target);
     // Dropped back where it started.
     if (
       block.section === target.section &&
@@ -189,6 +223,7 @@ export function DayPlanPage() {
       {plan && (
         <DndContext
           sensors={sensors}
+          collisionDetection={collisionDetection}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           onDragCancel={() => setDragging(null)}
@@ -223,8 +258,10 @@ export function DayPlanPage() {
                 onSaveFreeform={(block, text) =>
                   block.id && updateFreeform.mutate({ id: block.id, text })
                 }
-                onRemove={removeFromDay}
                 onClear={clearToBank}
+                onEditNote={(block, note) =>
+                  block.id && updateNote.mutate({ id: block.id, note })
+                }
                 onRemoveSlot={(slotIndex) =>
                   removeSlot.mutate({ section: s.key, slot_index: slotIndex })
                 }

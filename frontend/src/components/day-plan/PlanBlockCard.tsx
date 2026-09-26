@@ -1,5 +1,7 @@
 import { RefNumber } from '../shared/RefNumber';
 import { DueBadge } from '../shared/DueBadge';
+import { useState } from 'react';
+import { AddDetailsButton, PlanNote } from './PlanNote';
 import type { PlanBlock, PlanEntityType } from '../../types';
 
 // Calendar-style fills, one per kind, so a glance at the timeline says what's what.
@@ -30,10 +32,20 @@ interface PlanBlockCardProps {
   /** Shows an ×. What it does is the caller's call; say so in dismissLabel. */
   onDismiss?: () => void;
   dismissLabel?: string;
+  /** Makes the session note editable. Scheduled dailies only. */
+  onEditNote?: (note: string) => void;
 }
 
-export function PlanBlockCard({ block, viewedDate, onOpen, onDismiss, dismissLabel = 'Remove from this day' }: PlanBlockCardProps) {
+export function PlanBlockCard({
+  block, viewedDate, onOpen, onDismiss, dismissLabel = 'Remove from this day', onEditNote,
+}: PlanBlockCardProps) {
   const done = block.completed_at !== null || block.logged;
+  const [editingNote, setEditingNote] = useState(false);
+
+  const finishNote = (note: string | null) => {
+    setEditingNote(false);
+    if (note !== null && note.trim() !== (block.note ?? '')) onEditNote?.(note);
+  };
 
   return (
     <div
@@ -59,8 +71,15 @@ export function PlanBlockCard({ block, viewedDate, onOpen, onDismiss, dismissLab
         <span className={`wrap-break-word ${done ? 'line-through' : ''}`}>
           {block.name || <span className="italic opacity-60">Untitled</span>}
         </span>
+        {onEditNote && !block.note && !editingNote && <AddDetailsButton onClick={() => setEditingNote(true)} />}
       </div>
       {block.project_name && <div className="text-[11px] opacity-80 truncate">{block.project_name}</div>}
+      <PlanNote
+        note={block.note}
+        editing={editingNote}
+        onStartEdit={onEditNote ? () => setEditingNote(true) : undefined}
+        onFinish={finishNote}
+      />
       {!done && <DueBadge dueDate={block.due_date} viewedDate={viewedDate} />}
     </div>
   );

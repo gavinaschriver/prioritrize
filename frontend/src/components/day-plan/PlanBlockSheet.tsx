@@ -22,7 +22,16 @@ export function PlanBlockSheet({ block, viewedDate, onClose }: PlanBlockSheetPro
         <TaskDetailModal projectId={block.project_id} taskId={block.entity_id} onClose={onClose} viewedDate={viewedDate} />
       ) : null;
     case 'prioritry':
-      return <DailySheet prioritryId={block.entity_id} viewedDate={viewedDate} onClose={onClose} />;
+      // Keyed per block so the comment box re-seeds from each session's own note.
+      return (
+        <DailySheet
+          key={block.id ?? block.entity_id}
+          prioritryId={block.entity_id}
+          note={block.note}
+          viewedDate={viewedDate}
+          onClose={onClose}
+        />
+      );
     default:
       return null;
   }
@@ -31,7 +40,12 @@ export function PlanBlockSheet({ block, viewedDate, onClose }: PlanBlockSheetPro
 /** The daily sheet wants the day's summary row (entries, counts), not the bare
  *  daily -- so it fetches the tracker's summary for the day and finds it there.
  *  Its own component so that fetch only happens while a daily is open. */
-function DailySheet({ prioritryId, viewedDate, onClose }: { prioritryId: string; viewedDate: string; onClose: () => void }) {
+function DailySheet({ prioritryId, note, viewedDate, onClose }: {
+  prioritryId: string;
+  note: string | null;
+  viewedDate: string;
+  onClose: () => void;
+}) {
   const { data: summary } = useDaySummary(viewedDate);
   if (!summary) return null;
 
@@ -39,5 +53,13 @@ function DailySheet({ prioritryId, viewedDate, onClose }: { prioritryId: string;
   const bonus = summary.bonuses.find(b => b.prioritry_id === prioritryId);
   const item = goal ?? bonus ?? null;
 
-  return <DailyDetailModal item={item} isBonus={!goal} selectedDate={viewedDate} onClose={onClose} />;
+  return (
+    <DailyDetailModal
+      item={item}
+      isBonus={!goal}
+      selectedDate={viewedDate}
+      onClose={onClose}
+      initialComment={note ?? undefined}
+    />
+  );
 }
