@@ -20,6 +20,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
   const [timeblock, setTimeblock] = useState('');
   const [commentsEnabled, setCommentsEnabled] = useState(false);
   const [description, setDescription] = useState('');
+  const [hideFromDayView, setHideFromDayView] = useState(false);
   const [error, setError] = useState('');
 
   const createPrioritry = useCreatePrioritry();
@@ -34,6 +35,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setTimeblock(editing.timeblock?.toString() || '');
       setCommentsEnabled(editing.comments_enabled);
       setDescription(editing.description ?? '');
+      setHideFromDayView(editing.hide_from_day_view);
     }
   }, [editing]);
 
@@ -55,6 +57,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       timeblock: timeblock ? parseInt(timeblock) : null,
       comments_enabled: commentsEnabled,
       description: description.trim() || null,
+      hide_from_day_view: hideFromDayView,
     };
 
     try {
@@ -71,6 +74,7 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
       setTimeblock('');
       setCommentsEnabled(false);
       setDescription('');
+      setHideFromDayView(false);
       onDone();
     } catch (err: any) {
       setError(err.message);
@@ -154,6 +158,16 @@ export function PrioritryForm({ editing, onDone }: PrioritryFormProps) {
             className="rounded"
           />
           Comments enabled?
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={hideFromDayView}
+            onChange={e => setHideFromDayView(e.target.checked)}
+            className="rounded"
+          />
+          Hide from Day View
+          <Tooltip text="For standing rules rather than things you do at a time — e.g. &quot;no screens after 9&quot;. It still counts on the tracker; it just won't show up as something to schedule." />
         </label>
       </div>
 

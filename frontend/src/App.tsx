@@ -9,6 +9,7 @@ import { ManageTodosPage } from './pages/ManageTodosPage';
 import { ManageProjectsPage } from './pages/ManageProjectsPage';
 import { ProjectDetailPage } from './pages/ProjectDetailPage';
 import { DashboardPage } from './pages/DashboardPage';
+import { DayPlanPage } from './pages/DayPlanPage';
 import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import { AppShell } from './components/layout/AppShell';
 
@@ -36,6 +37,16 @@ function App() {
               <ProtectedRoute>
                 <AppShell>
                   <DayTrackerPage />
+                </AppShell>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/day"
+            element={
+              <ProtectedRoute>
+                <AppShell>
+                  <DayPlanPage />
                 </AppShell>
               </ProtectedRoute>
             }

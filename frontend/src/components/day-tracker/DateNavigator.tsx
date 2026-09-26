@@ -3,9 +3,12 @@ import { getTodayStr } from '../../lib/api';
 interface DateNavigatorProps {
   selectedDate: string;
   onDateChange: (date: string) => void;
+  /** The tracker scores days that happened, so it stops at today. The Day view
+   *  plans ahead and opts in to going forward. */
+  allowFuture?: boolean;
 }
 
-export function DateNavigator({ selectedDate, onDateChange }: DateNavigatorProps) {
+export function DateNavigator({ selectedDate, onDateChange, allowFuture = false }: DateNavigatorProps) {
   const today = getTodayStr();
   const isToday = selectedDate === today;
 
@@ -54,7 +57,7 @@ export function DateNavigator({ selectedDate, onDateChange }: DateNavigatorProps
       </div>
       <button
         onClick={() => shiftDate(1)}
-        disabled={isToday}
+        disabled={isToday && !allowFuture}
         className="px-3 py-1 text-lg text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded disabled:opacity-30"
       >
         &gt;

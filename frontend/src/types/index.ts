@@ -10,6 +10,8 @@ export interface Prioritry {
   comments_enabled: boolean;
   /** Standing notes on the routine itself, edited from the Dailies page. */
   description: string | null;
+  /** A standing rule rather than something to schedule; the Day view skips it. */
+  hide_from_day_view: boolean;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -23,6 +25,7 @@ export interface PrioritryCreate {
   timeblock: number | null;
   comments_enabled: boolean;
   description?: string | null;
+  hide_from_day_view?: boolean;
 }
 
 export interface Entry {
@@ -333,4 +336,63 @@ export interface ItemRef {
   /** Set for tasks; the detail sheet needs it to load the parent project. */
   project_id: string | null;
   completed_at: string | null;
+}
+
+/** Where a block sits on the Day view. The bank is an unordered pile and
+ *  'dismissed' hides an item for the day; the timeline sections are positioned
+ *  by slot_index. */
+export type TimelineSection = 'morning' | 'afternoon' | 'evening';
+export type PlanSection = 'bank' | 'dismissed' | TimelineSection;
+export type PlanEntityType = 'todo' | 'project_task' | 'prioritry' | 'freeform';
+
+/** One block on a day's plan, hydrated with the item it points at. */
+export interface PlanBlock {
+  /** The stored placement. null for items in the bank only because they're due. */
+  id: string | null;
+  section: PlanSection;
+  slot_index: number | null;
+  entity_type: PlanEntityType;
+  /** null only for freeform blocks. */
+  entity_id: string | null;
+  /** The item's name, or a freeform block's text. */
+  name: string;
+  point_value: number | null;
+  ref_number: number | null;
+  due_date: string | null;
+  completed_at: string | null;
+  /** Tasks only — completing one goes through its project's route. */
+  project_id: string | null;
+  project_name: string | null;
+  /** Dailies only: an entry is already logged on the plan date. */
+  logged: boolean;
+  /** Dailies only. Goals and bonuses sit in separate drawers and colours. */
+  daily_type: 'Goal' | 'Bonus' | null;
+  /** Dailies only: can be planned (and logged) more than once a day. */
+  can_repeat: boolean;
+  /** Repeatable dailies in the drawer only: sessions already in a slot that day. */
+  scheduled_count: number;
+}
+
+export interface DayPlan {
+  date: string;
+  bank: PlanBlock[];
+  /** Active dailies not yet placed — kept apart for the collapsed drawer. */
+  dailies: PlanBlock[];
+  slots: PlanBlock[];
+  /** Hidden for this day only; removing the row brings the item back. */
+  dismissed: PlanBlock[];
+  /** Slots to render per section: 3 unless changed that day, and never fewer
+   *  than the highest occupied slot + 1. */
+  slot_counts: Record<TimelineSection, number>;
+}
+
+/** A pending todo or task that "+ Other" can pull onto the day. */
+export interface PlanCandidate {
+  entity_type: 'todo' | 'project_task';
+  entity_id: string;
+  name: string;
+  point_value: number | null;
+  ref_number: number | null;
+  due_date: string | null;
+  project_name: string | null;
 }

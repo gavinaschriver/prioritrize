@@ -4,6 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 
 const NAV_ITEMS = [
   { to: '/', label: 'Tracker' },
+  { to: '/day', label: 'Day' },
   { to: '/manage', label: 'Dailies' },
   { to: '/manage-todos', label: 'Todos' },
   { to: '/manage-projects', label: 'Projects' },

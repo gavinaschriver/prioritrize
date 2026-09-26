@@ -11,6 +11,7 @@ class PrioritryCreate(BaseModel):
     timeblock: int | None = None
     comments_enabled: bool = False
     description: str | None = None
+    hide_from_day_view: bool = False
 
     @field_validator("point_value")
     @classmethod
@@ -28,6 +29,7 @@ class PrioritryUpdate(BaseModel):
     timeblock: int | None = None
     comments_enabled: bool | None = None
     description: str | None = None
+    hide_from_day_view: bool | None = None
 
     @field_validator("point_value")
     @classmethod
@@ -49,6 +51,8 @@ class PrioritryOut(BaseModel):
     comments_enabled: bool
     #: Standing notes on the routine itself, edited from the Dailies page.
     description: str | None
+    #: A standing rule rather than something to schedule; the Day view skips it.
+    hide_from_day_view: bool
     is_active: bool
     created_at: datetime
     updated_at: datetime
