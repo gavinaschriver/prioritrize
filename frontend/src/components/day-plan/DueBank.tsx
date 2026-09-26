@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { PlanBlockCard } from './PlanBlockCard';
 import { DraggableBlock, DropZone } from './dnd';
 import { dragId, NEW_FREEFORM } from './blocks';
@@ -27,10 +28,25 @@ export function DueBank({
     ? 'Due Today'
     : `Due ${new Date(viewedDate + 'T12:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'numeric', day: 'numeric' })}`;
 
+  // Open by default so what's overdue is in your face; folds to a one-line glance.
+  const [open, setOpen] = useState(true);
+  const overdueCount = bank.filter(b => b.due_date !== null && b.due_date < viewedDate).length;
+
   return (
     <DropZone id="bank" target={{ section: 'bank', slot_index: null }} className="mb-6 rounded-lg border border-gray-200 bg-white p-3">
-      <div className="flex items-center justify-between mb-2">
-        <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">{label}</h2>
+      <div className={`flex items-center justify-between ${open ? 'mb-2' : ''}`}>
+        <button
+          onClick={() => setOpen(o => !o)}
+          className="flex items-center gap-1 text-sm font-semibold text-gray-700 uppercase tracking-wide hover:text-gray-900"
+        >
+          <span>{open ? '▾' : '▸'}</span>
+          <span>{label} ({bank.length})</span>
+          {!open && overdueCount > 0 && (
+            <span className="ml-1 rounded bg-red-600 px-1.5 py-px text-[10px] font-bold text-white normal-case tracking-normal">
+              {overdueCount} overdue
+            </span>
+          )}
+        </button>
         <div className="flex gap-2">
           <button onClick={onOpenOther} className="text-xs text-blue-600 hover:underline">+ Other…</button>
           {/* Not a click target: press (or press and hold, on a phone) and drag it onto a slot. */}
@@ -45,7 +61,7 @@ export function DueBank({
         </div>
       </div>
 
-      {bank.length === 0 ? (
+      {!open ? null : bank.length === 0 ? (
         <p className="text-sm text-gray-500 py-1">Nothing due. Pull something in with + Other.</p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
